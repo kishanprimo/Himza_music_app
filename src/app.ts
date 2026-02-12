@@ -20,8 +20,19 @@ app.use(
     exposedHeaders: "*",
   })
 );
+
+// Static files middleware BEFORE routes
 app.use(
   "/uploads",
+  express.static("uploads", {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
+app.use(
+  "/api/uploads",
   express.static("uploads", {
     setHeaders: (res) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
