@@ -176,9 +176,10 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
     if (!album)
       return response_service.badRequestResponse(res, "Album not found.");
     let songs = req.body.songIds || req.body.song_ids;
-    songs = await album_service.removeSongsFromAlbum(songs, req.body.album_id);
+    songs = await album_service.removeSongFromAlbum(songs, req.body.album_id);
 
     if (songs && songs[0] == 0)
+    
       return response_service.badRequestResponse(
         res,
         "Failed to remove songs from album."

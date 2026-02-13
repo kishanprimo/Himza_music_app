@@ -54,7 +54,7 @@ async function addSongsToAlbum(
 }
 
 // remove songs from album =====================================
-async function removeSongsFromAlbum(
+async function removeSongFromAlbum(
   songIds: string[],
   albumId: string,
 ): Promise<number[] | null> {
@@ -72,7 +72,6 @@ async function removeSongsFromAlbum(
     throw err;
   }
 }
-
 // update album ===============================================
 async function updateAlbum(
   albumPayload: Partial<IAlbum>,
@@ -391,7 +390,7 @@ async function deleteAlbum(albumId: number): Promise<number> {
 export default {
   createAlbum,
   addSongsToAlbum,
-  removeSongsFromAlbum,
+  removeSongFromAlbum,
   updateAlbum,
   getAlbum,
   getAlbumData,

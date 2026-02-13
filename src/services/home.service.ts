@@ -26,23 +26,51 @@ async function addBlock(
   blockPayload: Partial<IHomeBlocks>
 ): Promise<IHomeBlocks> {
   try {
-    if (blockPayload.type === "album") {
-      blockPayload.song_ids = [];
-      blockPayload.genre_ids = [];
-      blockPayload.artist_ids = [];
-    } else if (blockPayload.type === "song") {
-      blockPayload.album_ids = [];
-      blockPayload.genre_ids = [];
-      blockPayload.artist_ids = [];
-    } else if (blockPayload.type === "genre") {
-      blockPayload.album_ids = [];
-      blockPayload.song_ids = [];
-      blockPayload.artist_ids = [];
-    } else if (blockPayload.type === "artist") {
-      blockPayload.album_ids = [];
-      blockPayload.song_ids = [];
-      blockPayload.genre_ids = [];
+    const { type } = blockPayload;
+
+    if (!type) {
+      throw new Error("Block type is required.");
     }
+
+    const hasAlbumIds = blockPayload.album_ids?.length;
+    const hasSongIds = blockPayload.song_ids?.length;
+    const hasGenreIds = blockPayload.genre_ids?.length;
+    const hasArtistIds = blockPayload.artist_ids?.length;
+
+    if (type === "album") {
+      if (hasSongIds || hasGenreIds || hasArtistIds) {
+        throw new Error(
+          "For album type, only album_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "song") {
+      if (hasAlbumIds || hasGenreIds || hasArtistIds) {
+        throw new Error(
+          "For song type, only song_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "genre") {
+      if (hasAlbumIds || hasSongIds || hasArtistIds) {
+        throw new Error(
+          "For genre type, only genre_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "artist") {
+      if (hasAlbumIds || hasSongIds || hasGenreIds) {
+        throw new Error(
+          "For artist type, only artist_ids are allowed."
+        );
+      }
+    }
+
+    // mix → allow everything
+
     const block = await HomeBlocks.create(blockPayload);
     return block.toJSON();
   } catch (err) {
@@ -50,20 +78,25 @@ async function addBlock(
   }
 }
 
+
 async function updateBlock(
   blockPayload: Partial<IHomeBlocks>,
   blockId: number
 ): Promise<IHomeBlocks | null> {
   try {
-    const [updatedRows, updatedBlock] = await HomeBlocks.update(blockPayload, {
+    const updatedRows = await HomeBlocks.update(blockPayload, {
       where: { block_id: blockId },
-      returning: true,
     });
-    return updatedRows ? updatedBlock[0].toJSON() : null;
+
+    if (!updatedRows[0]) return null;
+
+    const updatedBlock = await HomeBlocks.findByPk(blockId);
+    return updatedBlock ? updatedBlock.toJSON() : null;
   } catch (err) {
     throw err;
   }
 }
+
 
 async function addDataToBlock(
   blockId: number,
