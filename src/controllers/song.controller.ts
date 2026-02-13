@@ -48,8 +48,8 @@ async function getSong(req: Request, res: Response) {
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
     console.log("is_favorite", req.user?.user_id);
     const is_favorite = await song_service.isfavorite(
+      req.user?.user_id,
       parseInt(req.body.song_id),
-      req.user?.user_id
     );
       const is_downloaded = req.user?.user_id
       ? await song_service.isDownloaded(req.user.user_id, parseInt(req.body.song_id))
