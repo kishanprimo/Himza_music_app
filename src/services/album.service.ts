@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Album, AlbumSongs, favoriteAlbums, Genre, MusicSinger, Song, User } =
+const { Album, AlbumSongs,AlbumSong, favoriteAlbums, Genre, MusicSinger, song, User } =
   db;
 import { IAlbum, ISong } from "../types";
 import { Sequelize, Order } from "sequelize";
@@ -27,7 +27,7 @@ async function addSongsToAlbum(
     const ids: string[] = (
       await Promise.all(
         songIds.map(async (song_id: string) => {
-          const data: any = await Song.findOne({ where: { song_id: song_id } });
+          const data: any = await song.findOne({ where: { song_id: song_id } });
           return data ? data.song_id : null;
         })
       )
@@ -36,7 +36,7 @@ async function addSongsToAlbum(
     if (ids.length <= 0) return null;
     const albumSongs = await Promise.all(
       ids.map((song_id: string) =>
-        AlbumSongs.create({ album_id: albumId, song_id: song_id })
+        AlbumSong.create({ album_id: albumId, song_id: song_id })
       )
     );
     return albumSongs.map((s) => s.toJSON());
@@ -138,7 +138,7 @@ async function getAllAlbums(
           attributes: ["genre_id", "name", "background_img"],
         },
         {
-          model: AlbumSongs,
+          model: AlbumSong,
           as: "songs",
           attributes: [], // Don't fetch song data, just use for count
           required: false,
@@ -258,7 +258,7 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
           required: false,
           include: [
             {
-              model: Song,
+              model: song,
               as: "song",
               attributes: ["song_id", "thumbnail", "title", "audio"],
               include: [

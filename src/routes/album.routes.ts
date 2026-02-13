@@ -38,6 +38,7 @@ router.post(
   validateBody(createAlbumSchema),
   createAlbum,
 );
+
 router.post(
   "/add-songs-to-playlist",
   authenticate,
