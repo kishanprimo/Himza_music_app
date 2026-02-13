@@ -6,7 +6,7 @@ const {
   Movie,
   MovieSongConnection,
   MusicSinger,
-  Song,
+  song,
   User,
 } = db;
 import { IGenre } from "../types";
@@ -104,10 +104,11 @@ async function getSongsByGenre(
   page: number = 1,
   pageSize: number = 10
 ): Promise<PaginatedSongsResult> {
+  console.log("Genre Id !@!@112", genreId);
   try {
     const offset = (page - 1) * pageSize;
 
-    const { rows: songs, count: total } = await Song.findAndCountAll({
+    const { rows: songs, count: total } = await song.findAndCountAll({
       where: { genre_id: genreId },
       limit: pageSize,
       offset,
@@ -140,9 +141,9 @@ async function getSongsByGenre(
         },
       ],
     });
-    const song_counts = await Song.count({ where: { genre_id: genreId } });
-    const data = songs.map((song: any) => {
-      const songJson = song.toJSON();
+    const song_counts = await song.count({ where: { genre_id: genreId } });
+    const data = songs.map((songs: any) => {
+      const songJson = songs.toJSON();
       return {
         ...songJson,
         genre: {

@@ -123,7 +123,7 @@ async function getfavoriteSongs(
   userId: number,
   page: number = 1,
   limit: number = 10
-): Promise<{ data: any[]; total: number; page: number; totalPages: number }> {
+): Promise<{ data: any[]; total: number; page: number; totalPages: number; limit: number }> {
   try {
     const offset = (page - 1) * limit;
     let songs: any[] = await favorites.findAll({
@@ -173,6 +173,7 @@ async function getfavoriteSongs(
     return {
       data: songs,
       total,
+      limit,
       page,
       totalPages: Math.ceil(total / limit),
     };
