@@ -6,12 +6,12 @@ import fs from "fs";
 import db from "../models";
 
 const {
-  AlbumSongs,
+  AlbumSong,
   Genre,
   Movie,
   MovieSongConnection,
   MusicSinger,
-  Song,
+  song,
   User,
 } = db;
 
@@ -84,11 +84,11 @@ async function addSongsToAlbum(req: Request, res: Response) {
         },
         [
           {
-            model: AlbumSongs,
+            model: AlbumSong,
             as: "songs",
             include: [
               {
-                model: Song,
+                model: song,
                 as: "song",
                 attributes: ["song_id"],
               },
@@ -101,11 +101,11 @@ async function addSongsToAlbum(req: Request, res: Response) {
         { album_id: req.body.album_id, is_private: false },
         [
           {
-            model: AlbumSongs,
+            model: AlbumSong,
             as: "songs",
             include: [
               {
-                model: Song,
+                model: song,
                 as: "song",
                 attributes: ["song_id"],
               },
@@ -141,11 +141,11 @@ async function addSongsToAlbum(req: Request, res: Response) {
       "Songs added to album successfully.",
       await album_service.getAlbum({ album_id: req.body.album_id }, [
         {
-          model: AlbumSongs,
+          model: AlbumSong,
           as: "songs",
           include: [
             {
-              model: Song,
+              model: song,
               as: "song",
             },
           ],
@@ -160,6 +160,7 @@ async function addSongsToAlbum(req: Request, res: Response) {
 
 // remove song from album ==================================================
 async function removeSongsFromAlbum(req: Request, res: Response) {
+  console.log(req.body);
   try {
     let user = req.user;
     let album;
@@ -188,11 +189,11 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
       "Songs removed from album successfully.",
       await album_service.getAlbum({ album_id: req.body.album_id }, [
         {
-          model: AlbumSongs,
+          model: AlbumSong,
           as: "songs",
           include: [
             {
-              model: Song,
+              model: song,
               as: "song",
             },
           ],
@@ -237,11 +238,11 @@ async function updateAlbum(req: Request, res: Response) {
       );
     album = await album_service.getAlbum({ album_id: req.body.album_id }, [
       {
-        model: AlbumSongs,
+        model: AlbumSong,
         as: "songs",
         include: [
           {
-            model: Song,
+            model: song,
             as: "song",
           },
         ],
@@ -288,7 +289,7 @@ async function getAlbum(req: Request, res: Response) {
       user ? user.user_id : null,
       [
         {
-          model: Song,
+          model: song,
           as: "song",
           include: [
             {

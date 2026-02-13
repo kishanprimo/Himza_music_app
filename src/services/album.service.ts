@@ -1,14 +1,22 @@
 import db from "../models";
 
-const { Album, AlbumSongs,AlbumSong, favoriteAlbums, Genre, MusicSinger, song, User } =
-  db;
+const {
+  Album,
+  AlbumSongs,
+  AlbumSong,
+  favoriteAlbums,
+  Genre,
+  MusicSinger,
+  song,
+  User,
+} = db;
 import { IAlbum, ISong } from "../types";
 import { Sequelize, Order } from "sequelize";
 import { song_service } from ".";
 
 // create album =================================================
 async function createAlbum(
-  albumPayload: Partial<IAlbum>
+  albumPayload: Partial<IAlbum>,
 ): Promise<IAlbum | null> {
   try {
     const album = await Album.create(albumPayload);
@@ -21,7 +29,7 @@ async function createAlbum(
 // add songs to album ===================================================
 async function addSongsToAlbum(
   songIds: string[],
-  albumId: string
+  albumId: string,
 ): Promise<ISong[] | null> {
   try {
     const ids: string[] = (
@@ -29,15 +37,15 @@ async function addSongsToAlbum(
         songIds.map(async (song_id: string) => {
           const data: any = await song.findOne({ where: { song_id: song_id } });
           return data ? data.song_id : null;
-        })
+        }),
       )
     ).filter((id): id is string => id !== null);
 
     if (ids.length <= 0) return null;
     const albumSongs = await Promise.all(
       ids.map((song_id: string) =>
-        AlbumSong.create({ album_id: albumId, song_id: song_id })
-      )
+        AlbumSong.create({ album_id: albumId, song_id: song_id }),
+      ),
     );
     return albumSongs.map((s) => s.toJSON());
   } catch (err) {
@@ -48,16 +56,16 @@ async function addSongsToAlbum(
 // remove songs from album =====================================
 async function removeSongsFromAlbum(
   songIds: string[],
-  albumId: string
+  albumId: string,
 ): Promise<number[] | null> {
   try {
     const albumSongs = await Promise.all(
       songIds.map(
         async (song_id: string) =>
-          await AlbumSongs.destroy({
+          await AlbumSong.destroy({
             where: { album_id: albumId, song_id: song_id },
-          })
-      )
+          }),
+      ),
     );
     return albumSongs;
   } catch (err) {
@@ -68,7 +76,7 @@ async function removeSongsFromAlbum(
 // update album ===============================================
 async function updateAlbum(
   albumPayload: Partial<IAlbum>,
-  where: Partial<IAlbum>
+  where: Partial<IAlbum>,
 ): Promise<IAlbum | null> {
   try {
     const album = await Album.update(albumPayload, {
@@ -85,7 +93,7 @@ async function updateAlbum(
 // get album ============================================
 async function getAlbum(
   where: Partial<IAlbum>,
-  include?: any
+  include?: any,
 ): Promise<IAlbum | null> {
   try {
     const album = await Album.findOne({
@@ -104,7 +112,7 @@ async function getAllAlbums(
   page: number = 1,
   pageSize: number = 10,
   sort_by?: string,
-  sort_order?: string
+  sort_order?: string,
 ): Promise<{
   albums: IAlbum[];
   Pagination: {
@@ -171,7 +179,7 @@ async function getAllAlbums(
 async function getAlbumData(
   where: Partial<IAlbum>,
   user_id: number | null = null,
-  include?: any
+  include?: any,
 ): Promise<any[] | null> {
   try {
     const album = await AlbumSongs.findAll({
@@ -191,12 +199,12 @@ async function getAlbumData(
         if (user_id) {
           const is_favorite = await song_service.isfavorite(
             user_id,
-            parseInt(song.song_id)
+            parseInt(song.song_id),
           );
           return { ...song, is_favorite };
         }
         return { ...song };
-      })
+      }),
     );
 
     return songs.filter((song) => song !== null);
@@ -250,7 +258,7 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
       ],
       include: [
         {
-          model: AlbumSongs,
+          model: AlbumSong,
           as: "songs",
           attributes: ["album_song_id"],
           separate: true, // ✅ ensures correct order per parent
@@ -285,11 +293,11 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
     albums = await Promise.all(
       albums.map(async (album: any) => {
         const rawAlbum = album.get({ plain: true });
-        const songs_count = await AlbumSongs.count({
+        const songs_count = await AlbumSong.count({
           where: { album_id: rawAlbum.album_id },
         });
         return { ...rawAlbum, songs_count };
-      })
+      }),
     );
     // const songs_count = await AlbumSongs.count({ where: { album_id: albums.map(album => album.get({ plain: true }).album_id) } });
     if (!albums || albums.length === 0) return null;
@@ -302,7 +310,7 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
 async function getFavoriteAlbums(
   userId: number,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<{
   albums: any[];
   total: number;
@@ -321,7 +329,7 @@ async function getFavoriteAlbums(
     if (!albums || albums.length === 0) return null;
     const total = await favoriteAlbums.count({ where: { user_id: userId } });
     const albumIds = albums.map(
-      (album: any) => album.get({ plain: true }).album_id
+      (album: any) => album.get({ plain: true }).album_id,
     );
     albums = await Album.findAll({
       where: { album_id: albumIds },
