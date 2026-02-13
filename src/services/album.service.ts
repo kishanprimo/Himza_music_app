@@ -243,9 +243,21 @@ async function setfavorite(userId: number, albumId: number): Promise<boolean> {
   }
 }
 
-async function getMyAlbums(userId: number): Promise<any[] | null> {
+async function getMyAlbums(
+  userId: number,
+  page: number = 1,
+  limit: number = 10
+): Promise<{
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  albums: any[];
+}> {
   try {
-    let albums = await Album.findAll({
+    const offset = (page - 1) * limit;
+
+    const { count: total, rows } = await Album.findAndCountAll({
       where: { user_id: userId },
       attributes: [
         "album_id",
@@ -256,13 +268,16 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
         "createdAt",
         "updatedAt",
       ],
+      limit,
+      offset,
+      order: [["album_id", "DESC"]],
       include: [
         {
           model: AlbumSong,
           as: "songs",
           attributes: ["album_song_id"],
-          separate: true, // ✅ ensures correct order per parent
-          order: [["album_song_id", "DESC"]], // ✅ works now
+          separate: true,
+          order: [["album_song_id", "DESC"]],
           required: false,
           include: [
             {
@@ -287,25 +302,31 @@ async function getMyAlbums(userId: number): Promise<any[] | null> {
           ],
         },
       ],
-      order: [["album_id", "DESC"]],
     });
 
-    albums = await Promise.all(
-      albums.map(async (album: any) => {
-        const rawAlbum = album.get({ plain: true });
-        const songs_count = await AlbumSong.count({
-          where: { album_id: rawAlbum.album_id },
-        });
-        return { ...rawAlbum, songs_count };
-      }),
-    );
-    // const songs_count = await AlbumSongs.count({ where: { album_id: albums.map(album => album.get({ plain: true }).album_id) } });
-    if (!albums || albums.length === 0) return null;
-    return albums;
+    // Add songs_count without extra DB queries
+    const albums = rows.map((album: any) => {
+      const rawAlbum = album.get({ plain: true });
+      return {
+        ...rawAlbum,
+        songs_count: rawAlbum.songs?.length || 0,
+      };
+    });
+
+    return {
+      albums,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      
+    };
   } catch (err) {
     throw err;
   }
 }
+
+
 
 async function getFavoriteAlbums(
   userId: number,

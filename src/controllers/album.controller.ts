@@ -388,7 +388,8 @@ async function setfavorite(req: Request, res: Response) {
 async function getMyAlbums(req: Request, res: Response) {
   try {
     const user = req.user;
-    const albums = await album_service.getMyAlbums(user.user_id);
+    const albums = await album_service.getMyAlbums(user.user_id,req.body.page,
+      req.body.limit);
     if (!albums)
       return response_service.notFoundResponse(res, "Albums not found.");
     return response_service.successResponse(
