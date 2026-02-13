@@ -38,6 +38,9 @@ router.post(
 );
 
 router.get("/next-song", getNextSong);
+
+
+router.use(authenticate);
 router.post(
   "/get",
   validateBody(
@@ -45,8 +48,6 @@ router.post(
   ),
   getSong
 );
-
-router.use(authenticate);
 router.post(
   "/",
   validateBody(

@@ -23,6 +23,7 @@ const {
 import { log } from "console";
 
 async function getSong(req: Request, res: Response) {
+  console.log("getSong", req.body,req.user);
   try {
     const song = await song_service.getSong(parseInt(req.body.song_id), [
       {
@@ -45,13 +46,20 @@ async function getSong(req: Request, res: Response) {
       },
     ]);
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
+    console.log("is_favorite", req.user?.user_id);
     const is_favorite = await song_service.isfavorite(
       parseInt(req.body.song_id),
       req.user?.user_id
     );
+      const is_downloaded = req.user?.user_id
+      ? await song_service.isDownloaded(req.user.user_id, parseInt(req.body.song_id))
+      : false;
+
+    // get downloads details
     return response_service.successResponse(res, "Song fetched successfully.", {
       ...song,
       is_favorite,
+      is_downloaded,
     });
   } catch (err: any) {
     logger.error("Error fetching song:", err);

@@ -66,6 +66,24 @@ async function setDownloaded(userId: number, songId: number): Promise<boolean> {
   }
 }
 
+// is Downloaded or not 
+async function isDownloaded(
+  userId: number | undefined,
+  songId: number
+): Promise<boolean> {
+  if (!userId) return false;
+
+  const download = await Downloads.findOne({
+    where: {
+      user_id: userId,
+      song_id: songId,
+    },
+  });
+
+  return !!download;
+}
+
+
 async function isfavorite(userId: number, songId: number): Promise<boolean> {
   try {
     const favorite = await favorites.findOne({
@@ -444,6 +462,7 @@ export default {
   getTotalSongs,
   getfavoriteSongs,
   getAllSongs,
+  isDownloaded,
   getDownloadedSongs,
   getTrendingSongs,
   deleteSong,

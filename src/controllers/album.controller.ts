@@ -20,11 +20,11 @@ async function createAlbum(req: Request, res: Response) {
   try {
     const user = req.user;
     const is_private = req.body.is_private;
-    if (is_private != "true" && !req.user.admin_id)
-      return response_service.badRequestResponse(
-        res,
-        "Only admins can create public albums."
-      );
+    // if (is_private != "true" && !req.user.admin_id)
+    //   return response_service.badRequestResponse(
+    //     res,
+    //     "Only admins can create public albums."
+    //   );
     if (is_private == "true" && !req.user.user_id)
       return response_service.badRequestResponse(
         res,

@@ -69,6 +69,7 @@ router.post(
   ),
   getFavoriteAlbums,
 );
+
 router.post(
   "/delete-album",
   authenticate,
