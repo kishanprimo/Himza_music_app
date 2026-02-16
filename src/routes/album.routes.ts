@@ -62,7 +62,7 @@ router.post(
   ),
   removeSongsFromAlbum,
 );
-router.get("/get-my-albums", authenticate, validateBody(
+router.get("/get-my-playlist", authenticate, validateBody(
     z.object({ page: z.string().optional(), limit: z.string().optional() }),
   ), getMyAlbums);
 router.post(
