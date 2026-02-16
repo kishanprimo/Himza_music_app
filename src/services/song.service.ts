@@ -11,10 +11,11 @@ const {
   Movie,
   User,
   AlbumSongs,
-  History
+  History,
 } = db;
 import { ISong } from "../types";
 import { col, fn, Op } from "sequelize";
+import sequelize from "sequelize";
 
 async function getSong(songId: number, include?: any): Promise<ISong | null> {
   try {
@@ -66,10 +67,10 @@ async function setDownloaded(userId: number, songId: number): Promise<boolean> {
   }
 }
 
-// is Downloaded or not 
+// is Downloaded or not
 async function isDownloaded(
   userId: number | undefined,
-  songId: number
+  songId: number,
 ): Promise<boolean> {
   if (!userId) return false;
 
@@ -82,7 +83,6 @@ async function isDownloaded(
 
   return !!download;
 }
-
 
 async function isfavorite(userId: number, songId: number): Promise<boolean> {
   try {
@@ -112,7 +112,7 @@ async function updateSong(songId: number, data: any) {
 async function getTotalSongs(): Promise<string[]> {
   try {
     const songs = await song.findAll({ attributes: ["song_id"] });
-    return songs.map((song:any) => (song as any).song_id.toString());
+    return songs.map((song: any) => (song as any).song_id.toString());
   } catch (err) {
     logger.error("Error counting songs:", err);
     throw err;
@@ -122,8 +122,14 @@ async function getTotalSongs(): Promise<string[]> {
 async function getfavoriteSongs(
   userId: number,
   page: number = 1,
-  limit: number = 10
-): Promise<{ data: any[]; total: number; page: number; totalPages: number; limit: number }> {
+  limit: number = 10,
+): Promise<{
+  data: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+}> {
   try {
     const offset = (page - 1) * limit;
     let songs: any[] = await favorites.findAll({
@@ -182,10 +188,103 @@ async function getfavoriteSongs(
   }
 }
 
+// search favorite Songs ====================================
+
+async function searchFavoriteSongs(
+  userId: number,
+  search: string,
+  page: number = 1,
+  limit: number = 10,
+) {
+  try {
+    const currentPage = Number(page) || 1;
+    const perPage = Number(limit) || 10;
+    const offset = (currentPage - 1) * perPage;
+
+    if (!search || !search.trim()) {
+      return {
+        data: [],
+        Pagination: {
+          current_page: currentPage,
+          records_per_page: perPage,
+          total_pages: 0,
+          total_records: 0,
+        },
+      };
+    }
+
+    const { count, rows } = await favorites.findAndCountAll({
+      where: { user_id: userId },
+      limit: perPage,
+      offset,
+      distinct: true,
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: song,
+          as: "song",
+          required: true,
+          where: {
+            title: { [Op.iLike]: `${search.trim()}%` },
+          },
+          include: [
+            {
+              model: Genre,
+              as: "genre",
+              attributes: ["genre_id", "name"],
+            },
+            {
+              model: MusicSinger,
+              as: "artists",
+              attributes: ["music_singer_id"],
+              include: [
+                {
+                  model: User,
+                  as: "singer",
+                  attributes: ["user_id", "full_name", "profile_pic"],
+                },
+              ],
+            },
+            {
+              model: MovieSongConnection,
+              as: "movie",
+              attributes: ["movie_song_id"],
+              include: [
+                {
+                  model: Movie,
+                  as: "movie_details",
+                  attributes: ["movie_id", "title", "poster"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const songs = rows.map((fav: any) =>
+      fav.get({ plain: true }).song
+    );
+
+    return {
+      data: songs,
+      Pagination: {
+        current_page: currentPage,
+        records_per_page: perPage,
+        total_pages: Math.ceil(count / perPage),
+        total_records: count,
+      },
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+
 async function getDownloadedSongs(
   userId: number,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<{
   data: any[];
   Pagination: {
@@ -255,6 +354,101 @@ async function getDownloadedSongs(
   }
 }
 
+// search downloaded songs ===================================
+async function searchDownloadedSongs(
+  userId: number,
+  search: string,
+  page: number = 1,
+  limit: number = 10,
+) {
+  try {
+    const currentPage = Number(page) || 1;
+    const perPage = Number(limit) || 10;
+    const offset = (currentPage - 1) * perPage;
+
+    if (!search || !search.trim()) {
+      return {
+        data: [],
+        Pagination: {
+          current_page: currentPage,
+          records_per_page: perPage,
+          total_pages: 0,
+          total_records: 0,
+        },
+      };
+    }
+
+    const { count, rows } = await Downloads.findAndCountAll({
+      where: { user_id: userId },
+      subQuery: false,
+      distinct: true,
+      col: "download_id",
+      limit: perPage,
+      offset,
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: song,
+          as: "song",
+          required: true,
+          where: {
+            title: { [Op.iLike]: `${search.trim()}%` },
+          },
+          include: [
+            {
+              model: Genre,
+              as: "genre",
+              attributes: ["genre_id", "name"],
+            },
+            {
+              model: MusicSinger,
+              as: "artists",
+              attributes: ["music_singer_id"],
+              include: [
+                {
+                  model: User,
+                  as: "singer",
+                  attributes: ["user_id", "full_name", "profile_pic"],
+                },
+              ],
+            },
+            {
+              model: MovieSongConnection,
+              as: "movie",
+              attributes: ["movie_song_id"],
+              include: [
+                {
+                  model: Movie,
+                  as: "movie_details",
+                  attributes: ["movie_id", "title", "poster"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const songs = rows.map((item: any) =>
+      item.get({ plain: true }).song
+    );
+
+    return {
+      data: songs,
+      Pagination: {
+        current_page: currentPage,
+        records_per_page: perPage,
+        total_pages: Math.ceil(count / perPage),
+        total_records: count,
+      },
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+
+
 
 async function getAllSongs(
   albumId?: number,
@@ -262,7 +456,7 @@ async function getAllSongs(
   limit: number = 10,
   userId: number = 0,
   for_admin: boolean = false,
-  search?: string
+  search?: string,
 ): Promise<{
   data: any[];
   Pagination: {
@@ -285,7 +479,9 @@ async function getAllSongs(
         },
         attributes: ["song_id"],
       });
-      excludeSongIds = albumSongs.map((song:any) => song.get("song_id") as number);
+      excludeSongIds = albumSongs.map(
+        (song: any) => song.get("song_id") as number,
+      );
     }
 
     const whereClause: any = {};
@@ -299,16 +495,16 @@ async function getAllSongs(
         ...whereClause,
         ...(search
           ? {
-            [Op.or]: [
-              { title: { [Op.iLike]: `%${search}%` } }, // song title match
-              { "$artists.singer.full_name$": { [Op.iLike]: `%${search}%` } }, // artist name match
-            ],
-          }
+              [Op.or]: [
+                { title: { [Op.iLike]: `%${search}%` } }, // song title match
+                { "$artists.singer.full_name$": { [Op.iLike]: `%${search}%` } }, // artist name match
+              ],
+            }
           : {}),
       },
       limit,
       offset,
-      order: [["createdAt", "DESC"]],
+      order: [sequelize.literal("RANDOM()")],
       distinct: true,
       include: [
         {
@@ -346,7 +542,7 @@ async function getAllSongs(
 
     const totalPages = Math.ceil(count / limit);
     const data = await Promise.all(
-      rows.map(async (song:any) => {
+      rows.map(async (song: any) => {
         const is_favorite = await favorites.findOne({
           where: { user_id: userId, song_id: song.get("song_id") },
         });
@@ -362,7 +558,7 @@ async function getAllSongs(
           download_counts,
           listen_counts,
         };
-      })
+      }),
     );
 
     return {
@@ -382,7 +578,7 @@ async function getAllSongs(
 
 async function getTrendingSongs(
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<any> {
   try {
     const songsData = await History.findAll({
@@ -393,7 +589,7 @@ async function getTrendingSongs(
       group: ["song_id"],
       order: [[fn("COUNT", col("song_id")), "DESC"]],
     });
-    const songIds = songsData.map((song:any) => song.get("song_id") as number);
+    const songIds = songsData.map((song: any) => song.get("song_id") as number);
     const songs = await song.findAll({
       where: { song_id: songIds },
       include: [
@@ -462,9 +658,11 @@ export default {
   updateSong,
   getTotalSongs,
   getfavoriteSongs,
+  searchFavoriteSongs,
   getAllSongs,
   isDownloaded,
   getDownloadedSongs,
+  searchDownloadedSongs,
   getTrendingSongs,
   deleteSong,
 };

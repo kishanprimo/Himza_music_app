@@ -23,7 +23,7 @@ const {
 import { log } from "console";
 
 async function getSong(req: Request, res: Response) {
-  console.log("getSong", req.body,req.user);
+  console.log("getSong", req.body, req.user);
   try {
     const song = await song_service.getSong(parseInt(req.body.song_id), [
       {
@@ -51,8 +51,11 @@ async function getSong(req: Request, res: Response) {
       req.user?.user_id,
       parseInt(req.body.song_id),
     );
-      const is_downloaded = req.user?.user_id
-      ? await song_service.isDownloaded(req.user.user_id, parseInt(req.body.song_id))
+    const is_downloaded = req.user?.user_id
+      ? await song_service.isDownloaded(
+          req.user.user_id,
+          parseInt(req.body.song_id),
+        )
       : false;
 
     // get downloads details
@@ -76,7 +79,7 @@ async function setfavorite(req: Request, res: Response) {
     const isfavorite = await song_service.setfavorite(user.user_id, songId);
     return response_service.successResponse(
       res,
-      `Song marked as favorite: ${isfavorite}.`
+      `Song marked as favorite: ${isfavorite}.`,
     );
   } catch (err: any) {
     logger.error("Error setting favorite:", err);
@@ -93,7 +96,7 @@ async function setDownloaded(req: Request, res: Response) {
     const isDownloaded = await song_service.setDownloaded(user.user_id, songId);
     return response_service.successResponse(
       res,
-      `Song marked as downloaded: ${isDownloaded}.`
+      `Song marked as downloaded: ${isDownloaded}.`,
     );
   } catch (err: any) {
     logger.error("Error setting downloaded:", err);
@@ -106,20 +109,20 @@ async function getMySongs(req: Request, res: Response) {
     const artist = await user_service.getUser(
       { user_id: req.body.artist_id, is_singer: true },
       [],
-      ["user_id", "full_name", "profile_pic"]
+      ["user_id", "full_name", "profile_pic"],
     );
-    
+
     if (!artist)
       return response_service.notFoundResponse(res, "Artist not found.");
     let is_favorite = false;
-    
+
     if (req.user.user_id)
       is_favorite = await singer_service.isfavorite(
         req.user.user_id,
-        req.body.artist_id
+        req.body.artist_id,
       );
     const songs_count = await singer_service.mySongsCount(
-      parseInt(req.body.artist_id)
+      parseInt(req.body.artist_id),
     );
     const likes_count = await favoriteArtists.count({
       where: { artist_user_id: req.body.artist_id },
@@ -128,7 +131,7 @@ async function getMySongs(req: Request, res: Response) {
     let songs: any = await singer_service.mySongs(
       parseInt(req.body.artist_id),
       req.body.page,
-      req.body.limit
+      req.body.limit,
     );
     songs = await Promise.all(
       songs.data.map(async (song: any) => {
@@ -141,43 +144,41 @@ async function getMySongs(req: Request, res: Response) {
             songs_count,
             likes_count,
           },
-          is_favorite: req.user.user_id ? await song_service.isfavorite(
-            req.user?.user_id,
-            song.song_id
-          ) : false,
+          is_favorite: req.user.user_id
+            ? await song_service.isfavorite(req.user?.user_id, song.song_id)
+            : false,
           likes_count: await favorites.count({
             where: { song_id: song.song_id },
           }),
-          
         };
-      })
+      }),
     );
     if (songs.length > 0) {
       return response_service.successResponse(
         res,
         "Songs fetched successfully.",
-        songs
+        songs,
       );
     } else {
       const singer = await user_service.getUser(
         { user_id: req.body.artist_id, is_singer: true },
         [],
-        ["user_id", "full_name", "profile_pic"]
+        ["user_id", "full_name", "profile_pic"],
       );
       let is_favorite = false;
       if (req.user.user_id) {
         is_favorite = await singer_service.isfavorite(
           req.user.user_id,
-          req.body.artist_id
+          req.body.artist_id,
         );
       }
       const songs_count = await singer_service.mySongsCount(
-        parseInt(req.body.artist_id)
+        parseInt(req.body.artist_id),
       );
       return response_service.successResponse(
         res,
         "Songs fetched successfully.",
-        [{ singer: { ...singer, is_favorite, songs_count } }]
+        [{ singer: { ...singer, is_favorite, songs_count } }],
       );
     }
   } catch (err: any) {
@@ -195,7 +196,7 @@ async function createMusic(req: Request, res: Response) {
     if (!files || !files["thumbnail"] || !files["audio"])
       return response_service.badRequestResponse(
         res,
-        "Audio and thumbnail are required."
+        "Audio and thumbnail are required.",
       );
     const audio = files["audio"][0];
     const duration = await getAudioDuration(audio?.path as string);
@@ -203,7 +204,7 @@ async function createMusic(req: Request, res: Response) {
     if (!audio || !thumbnail)
       return response_service.badRequestResponse(
         res,
-        "Audio and thumbnail are required."
+        "Audio and thumbnail are required.",
       );
     let song = await singer_service.addSong({
       category_id: req.body.category_id,
@@ -220,14 +221,14 @@ async function createMusic(req: Request, res: Response) {
         if (is_singer) {
           await singer_service.addSongToArtist(
             parseInt(song?.song_id),
-            parseInt(artist_id)
+            parseInt(artist_id),
           );
         }
       });
       return response_service.successResponse(
         res,
         "Music added successfully.",
-        removeExtraFields(song, ["genre_id"])
+        removeExtraFields(song, ["genre_id"]),
       );
     }
     return response_service.badRequestResponse(res, "Failed to add song.");
@@ -272,7 +273,7 @@ async function updateSong(req: Request, res: Response) {
       return response_service.successResponse(
         res,
         "Song updated successfully.",
-        updatedSong
+        updatedSong,
       );
     }
     return response_service.badRequestResponse(res, "Failed to update song.");
@@ -290,7 +291,7 @@ async function getNextSong(req: Request, res: Response) {
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
     const is_favorite = await song_service.isfavorite(
       parseInt(song_id),
-      req.user?.user_id
+      req.user?.user_id,
     );
     return response_service.successResponse(res, "Song fetched successfully.", {
       ...song,
@@ -307,14 +308,14 @@ async function getfavoriteSongs(req: Request, res: Response) {
     const songs = await song_service.getfavoriteSongs(
       req.user.user_id || req.body.user_id,
       req.body.page,
-      req.body.limit
+      req.body.limit,
     );
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
     return response_service.successResponse(
       res,
       "Songs fetched successfully.",
-      songs
+      songs,
     );
   } catch (err: any) {
     logger.error("Error fetching favorite songs:", err);
@@ -322,25 +323,127 @@ async function getfavoriteSongs(req: Request, res: Response) {
   }
 }
 
+// search for favorite songs ========================================
+async function searchFavoriteSongs(req: Request, res: Response) {
+  console.log("Search keyword !@12", req.body);
+  try {
+    const user = req.user as any;
+
+    const search = String(req.body.search || "").trim();
+
+    const page =
+      req.body.page !== undefined && req.body.page !== ""
+        ? Number(req.body.page)
+        : 1;
+
+    const limit =
+      req.body.limit !== undefined && req.body.limit !== ""
+        ? Number(req.body.limit)
+        : 10;
+
+    if (!search) {
+      return response_service.badRequestResponse(
+        res,
+        "Search keyword is required."
+      );
+    }
+
+    const result = await song_service.searchFavoriteSongs(
+      user.user_id,
+      search,
+      page,
+      limit
+    );
+
+    return response_service.successResponse(
+      res,
+      "Favorite songs fetched successfully.",
+      result
+    );
+  } catch (err: any) {
+    logger.error("search favorite songs controller:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
+
 async function getDownloadedSongs(req: Request, res: Response) {
   try {
     const songs = await song_service.getDownloadedSongs(
       req.user.user_id || req.body.user_id,
       req.body.page,
-      req.body.limit
+      req.body.limit,
     );
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
     return response_service.successResponse(
       res,
       "Songs fetched successfully.",
-      songs
+      songs,
     );
   } catch (err: any) {
     logger.error("Error fetching downloaded songs:", err);
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
+
+// search download songs ==========================================
+
+export const searchDownloadedSongs = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = Number(req.user?.user_id);
+
+    const search = String(req.body.search || "").trim();
+
+    const page =
+      req.body.page !== undefined && req.body.page !== ""
+        ? Number(req.body.page)
+        : 1;
+
+    const limit =
+      req.body.limit !== undefined && req.body.limit !== ""
+        ? Number(req.body.limit)
+        : 10;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        message: "Search keyword is required",
+      });
+    }
+
+    const result = await song_service.searchDownloadedSongs(
+      userId,
+      search,
+      page,
+      limit
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Downloaded songs fetched successfully",
+      data: result.data,
+      Pagination: result.Pagination,
+    });
+  } catch (error: any) {
+    console.error("Search Downloaded Songs Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
 
 // all songs list ===============================================================
 async function getAllSongs(req: Request, res: Response) {
@@ -352,14 +455,14 @@ async function getAllSongs(req: Request, res: Response) {
       parseInt(req.body.limit || 10),
       req.user?.user_id,
       req.body.for_admin,
-      req.body.search
+      req.body.search,
     );
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
     return response_service.successResponse(
       res,
       "Songs fetched successfully.",
-      songs
+      songs,
     );
   } catch (err: any) {
     logger.error("Error fetching all songs:", err);
@@ -371,14 +474,14 @@ async function getTrendingSongs(req: Request, res: Response) {
   try {
     const songs = await song_service.getTrendingSongs(
       parseInt(req.body.page),
-      parseInt(req.body.limit)
+      parseInt(req.body.limit),
     );
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
     return response_service.successResponse(
       res,
       "Songs fetched successfully.",
-      songs
+      songs,
     );
   } catch (err: any) {
     console.log(err);
@@ -393,7 +496,7 @@ async function deleteSong(req: Request, res: Response) {
     if (!admin.admin_id)
       return response_service.badRequestResponse(
         res,
-        "Only admins can delete songs."
+        "Only admins can delete songs.",
       );
     const songId = parseInt(req.body.song_id);
     const song = await song_service.deleteSong(songId);
@@ -401,7 +504,7 @@ async function deleteSong(req: Request, res: Response) {
     return response_service.successResponse(
       res,
       "Song deleted successfully.",
-      song
+      song,
     );
   } catch (err: any) {
     logger.error("Error deleting song:", err);
@@ -419,6 +522,7 @@ export {
   getNextSong,
   getfavoriteSongs,
   getAllSongs,
+  searchFavoriteSongs,
   getDownloadedSongs,
   getTrendingSongs,
   deleteSong,

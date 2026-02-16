@@ -7,10 +7,12 @@ import {
   getMySongs,
   getNextSong,
   getfavoriteSongs,
+  searchFavoriteSongs,
   getAllSongs,
   getDownloadedSongs,
   getTrendingSongs,
   deleteSong,
+  searchDownloadedSongs
 } from "../controllers/song.controller";
 import { uploadMusicSchema, updateMusicSchema } from "../zod/song.validator";
 import { validateBody } from "../middleware/zod.middleware";
@@ -66,16 +68,27 @@ router.post(
   setfavorite,
 );
 // search favorite songs
-// router.post(
-//   "/search-favorite-songs",
-//   validateBody(
-//     z.object(
-//       { search: z.string().min(1, "search is required") },
-//       z.object({ page: z.string().optional(), limit: z.string().optional() }),
-//     ),
-//   ),
-//   searchFavoriteSongs,
-// );
+router.post(
+  "/search-favorite-songs",
+  validateBody(
+    z.object(
+      { search: z.string().min(1, "search is required") },
+      z.object({ page: z.string().optional(), limit: z.string().optional() }),
+    ),
+  ),
+  searchFavoriteSongs,
+);
+// search downloaded songs 
+router.post(
+  "/search-downloaded-songs",
+  validateBody(
+    z.object(
+      { search: z.string().min(1, "search is required") },
+      z.object({ page: z.string().optional(), limit: z.string().optional() }),
+    ),
+  ),
+  searchDownloadedSongs,
+);
 router.post(
   "/download",
   validateBody(

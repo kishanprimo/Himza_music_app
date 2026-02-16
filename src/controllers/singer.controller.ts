@@ -22,6 +22,44 @@ async function getFavoriteArtists(req: Request, res: Response) {
   }
 }
 
+// search favorite artist
+async function searchFavoriteArtists(req: Request, res: Response) {
+  console.log(req.body); // shows page & limit here
+
+  try {
+    const page =
+      req.body.page && !isNaN(Number(req.body.page))
+        ? Number(req.body.page)
+        : 1;
+
+    const limit =
+      req.body.limit && !isNaN(Number(req.body.limit))
+        ? Number(req.body.limit)
+        : 10;
+
+    const result = await singer_service.searchFavoriteArtists(
+      req.user.user_id,
+      req.body.search,
+      page,
+      limit
+    );
+
+    if (!result)
+      return response_service.notFoundResponse(res, "Artists not found.");
+
+    return response_service.successResponse(
+      res,
+      "Artists fetched successfully.",
+      result
+    );
+  } catch (err: any) {
+    logger.error("Error fetching artists:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
+
+
 async function setfavorite(req: Request, res: Response) {
   try {
     const user = req.user;
@@ -52,4 +90,4 @@ async function isfavorite(req: Request, res: Response) {
   }
 }
 
-export { getFavoriteArtists, setfavorite, isfavorite };
+export { getFavoriteArtists, searchFavoriteArtists, setfavorite, isfavorite };

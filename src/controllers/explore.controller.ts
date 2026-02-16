@@ -11,12 +11,12 @@ export async function search(req: Request, res: Response) {
       page,
       limit
     );
-    if (!searchResults || searchResults.length === 0) {
-      return response_service.notFoundResponse(
-        res,
-        "No results found for the given query."
-      );
-    }
+    // if (!searchResults || searchResults.length === 0) {
+    //   return response_service.notFoundResponse(
+    //     res,
+    //     "No results found for the given query."
+    //   );
+    // }
     return response_service.successResponse(
       res,
       "Search results retrieved successfully.",

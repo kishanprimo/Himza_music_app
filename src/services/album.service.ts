@@ -78,10 +78,10 @@ async function updateAlbum(
   albumPayload: Partial<IAlbum>,
   where: Partial<IAlbum>,
 ): Promise<IAlbum | null> {
+  console.log("updateAlbum", albumPayload);
   try {
     const album = await Album.update(albumPayload, {
       where: where,
-      returning: true,
     });
     if (album[1].length <= 0) return null;
     return album[1][0].toJSON();
@@ -225,6 +225,7 @@ async function isfavorite(userId: number, albumId: number): Promise<boolean> {
 }
 
 async function setfavorite(userId: number, albumId: number): Promise<boolean> {
+  console.log("setfavorite", userId, albumId,favoriteAlbums);
   try {
     const favorite = await favoriteAlbums.findOne({
       where: { user_id: userId, album_id: albumId },
@@ -471,4 +472,6 @@ export default {
   searchFavoriteAlbums,
   deleteAlbum,
 };
+
+
 

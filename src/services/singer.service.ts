@@ -12,6 +12,7 @@ const {
 } =db;
 import { ISong } from "../types";
 import { user_service } from ".";
+import {Op} from 'sequelize';
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -220,6 +221,69 @@ async function getFavoriteArtists(
   }
 }
 
+// search favorite artist ===================================================
+async function searchFavoriteArtists(
+  userId: number,
+  search: string,
+  page: number = 1,
+  limit: number = 10
+) {
+  try {
+    const offset = (page - 1) * limit;
+    const searchTerm = search?.trim();
+
+    if (!searchTerm) return null;
+
+    const { count, rows } = await favoriteArtists.findAndCountAll({
+      where: { user_id: userId },
+      limit,
+      offset,
+      distinct: true,
+      col: "favorite_id",
+      include: [
+        {
+          model: User,
+          as: "artist",
+          required: true, // 🔥 INNER JOIN
+          where: {
+            full_name: {
+              [Op.iLike]: `${searchTerm}%`,
+            },
+          },
+          attributes: ["user_id", "full_name", "profile_pic"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    if (!rows.length) return null;
+
+    const artists = await Promise.all(
+      rows.map(async (row: any) => {
+        const artist = row.artist;
+        const songs_count = await mySongsCount(artist.user_id);
+
+        return {
+          ...artist.toJSON(),
+          songs_count,
+        };
+      })
+    );
+
+    return {
+      artists,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+
+
 async function mySongsCount(artistId: number): Promise<number> {
   try {
     const count = await MusicSinger.count({ where: { user_id: artistId } });
@@ -252,5 +316,6 @@ export default {
   isfavorite,
   setfavorite,
   getFavoriteArtists,
+  searchFavoriteArtists,
   addGenreToArtist
 };
