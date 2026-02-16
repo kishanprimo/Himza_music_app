@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Song, Album, User } = db;
+const { Song,song, Album, User } = db;
 import { Op } from "sequelize";
 
 interface SearchResult {
@@ -37,7 +37,7 @@ async function search(
     };
 
     if (!type || type === 'song') {
-      const songsResult = await Song.findAndCountAll({
+      const songsResult = await song.findAndCountAll({
         where: {
           title: {
             [Op.iLike]: `${searchTerm}%`

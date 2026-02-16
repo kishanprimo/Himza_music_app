@@ -9,6 +9,7 @@ import {
   getFavoriteAlbums,
   removeSongsFromAlbum,
   deleteAlbum,
+  searchFavoriteAlbums,
 } from "../controllers/album.controller";
 import { addSongsToAlbum } from "../controllers/album.controller";
 import z from "zod";
@@ -72,6 +73,16 @@ router.post(
   ),
   getFavoriteAlbums,
 );
+
+// search favorite albums 
+router.post("/search-favorite-albums", authenticate, validateBody(
+    z.object({ 
+      search: z.string().min(1, "search is required."),
+      page: z.string().optional(), 
+      limit: z.string().optional() 
+    }),
+  ), searchFavoriteAlbums);
+
 router.post(
   "/delete-album",
   authenticate,

@@ -12,6 +12,7 @@ async function addToSearchHistory(req: Request, res: Response) {
         null
       );
     }
+    
     const searchHistory = await searchHistory_service.addToSearchHistory(
       req.user.user_id,
       req.body.type,
@@ -20,6 +21,11 @@ async function addToSearchHistory(req: Request, res: Response) {
       req.body.album_id,
       req.body.genre_id
     );
+    if (req.body.type === "song") {
+      //allow song_id only
+      searchHistory.song_id = req.body.song_id;
+    }
+    
     return response_service.successResponse(
       res,
       "Search history added successfully.",

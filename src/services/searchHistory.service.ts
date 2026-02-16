@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { SearchHistory, MusicSinger, User } =db;
+const { SearchHistory,searchHistory, MusicSinger, User } =db;
 import {
   album_service,
   genre_category_service,
@@ -17,57 +17,76 @@ async function addToSearchHistory(
   genreId?: number
 ): Promise<any> {
   try {
-    let searchHistory = await SearchHistory.findOne({
-      where: {
-        user_id: userId,
-        type,
-        ...(songId && { song_id: songId }),
-        ...(artistId && { artist_id: artistId }),
-        ...(albumId && { album_id: albumId }),
-        ...(genreId && { genre_id: genreId }),
-      },
-    });
-    if (searchHistory) {
-      await SearchHistory.update(
-        {
-          user_id: userId,
-        },
-        {
-          where: {
-            user_id: userId,
-            type,
-            ...(songId && { song_id: songId }),
-            ...(artistId && { artist_id: artistId }),
-            ...(albumId && { album_id: albumId }),
-            ...(genreId && { genre_id: genreId }),
-          },
-        }
-      );
-    } else {
-      searchHistory = await SearchHistory.create({
-        user_id: userId,
-        type,
-        song_id: songId,
-        artist_id: artistId,
-        album_id: albumId,
-        genre_id: genreId,
-      });
-      return searchHistory.toJSON();
+    let whereCondition: any = {
+      user_id: userId,
+      type,
+    };
+
+    let createData: any = {
+      user_id: userId,
+      type,
+      song_id: null,
+      artist_id: null,
+      album_id: null,
+      genre_id: null,
+    };
+
+    switch (type) {
+      case "song":
+        if (!songId) throw new Error("song_id is required");
+        whereCondition.song_id = songId;
+        createData.song_id = songId;
+        break;
+
+      case "artist":
+        if (!artistId) throw new Error("artist_id is required");
+        whereCondition.artist_id = artistId;
+        createData.artist_id = artistId;
+        break;
+
+      case "album":
+        if (!albumId) throw new Error("album_id is required");
+        whereCondition.album_id = albumId;
+        createData.album_id = albumId;
+        break;
+
+      case "genre":
+        if (!genreId) throw new Error("genre_id is required");
+        whereCondition.genre_id = genreId;
+        createData.genre_id = genreId;
+        break;
+
+      default:
+        throw new Error("Invalid search type");
     }
+
+    let searchHistorys = await searchHistory.findOne({
+      where: whereCondition,
+    });
+
+    if (searchHistorys) {
+      // Optional: update timestamp if you want
+      await searchHistorys.update({});
+      return searchHistorys.toJSON();
+    }
+
+    searchHistorys = await searchHistory.create(createData);
+    return searchHistorys.toJSON();
   } catch (err) {
     throw err;
   }
 }
+
 
 async function removeFromSearchHistory(
   userId: number,
   searchId: number
 ): Promise<any> {
   try {
-    const searchHistory = await SearchHistory.destroy({
+    const searchHistorys = await searchHistory.destroy({
       where: { user_id: userId, search_id: searchId },
     });
-    return searchHistory;
+    return searchHistorys;
   } catch (err) {
     throw err;
   }
@@ -81,7 +100,7 @@ async function getSearchHistory(
   try {
     const offset = (page - 1) * limit;
 
-    const searchHistory = await SearchHistory.findAndCountAll({
+    const searchHistorys = await searchHistory.findAndCountAll({
       where: { user_id: userId },
       order: [["updatedAt", "DESC"]],
       limit,
@@ -89,12 +108,12 @@ async function getSearchHistory(
     });
 
     // If no search history found, return default structure
-    if (!searchHistory || searchHistory.count === 0) {
+    if (!searchHistorys || searchHistorys.count === 0) {
       return { count: 0, rows: [] };
     }
 
     // Convert to JSON
-    let rows = searchHistory.rows.map((search:any) => search.toJSON());
+    let rows = searchHistorys.rows.map((search:any) => search.toJSON());
 
     // Enrich data
     rows = await Promise.all(
@@ -150,7 +169,7 @@ async function getSearchHistory(
     );
 
     return {
-      count: searchHistory.count,
+      count: searchHistorys.count,
       rows,
     };
   } catch (err) {

@@ -13,6 +13,7 @@ const {
 import { IAlbum, ISong } from "../types";
 import { Sequelize, Order } from "sequelize";
 import { song_service } from ".";
+import { Op } from "sequelize";
 
 // create album =================================================
 async function createAlbum(
@@ -376,6 +377,74 @@ async function getFavoriteAlbums(
   }
 }
 
+// search favorite album service ===================================
+
+async function searchFavoriteAlbums(
+  userId: number,
+  search: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<{
+  albums: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+} | null> {
+  try {
+    const offset = (page - 1) * limit;
+
+    // Get favorite album IDs of user
+    const favoriteList = await favoriteAlbums.findAll({
+      where: { user_id: userId },
+      attributes: ["album_id"],
+    });
+
+    if (!favoriteList.length) return null;
+
+    const albumIds = favoriteList.map(
+      (item: any) => item.get({ plain: true }).album_id
+    );
+
+    // Search albums from those IDs
+    const { rows, count } = await Album.findAndCountAll({
+      where: {
+        album_id: albumIds,
+        title: {
+          [Op.iLike]: `%${search}%`, // PostgreSQL case-insensitive search
+        },
+      },
+      attributes: [
+        "album_id",
+        "title",
+        "thumbnail",
+        "description",
+        "is_private",
+        "createdAt",
+        "updatedAt",
+      ],
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
+    });
+
+    console.log("rows", rows);
+
+    if (!rows.length) return null;
+
+    return {
+      albums: rows.map((album: any) => album.toJSON()),
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+
 async function deleteAlbum(albumId: number): Promise<number> {
   try {
     const result = await Album.destroy({ where: { album_id: albumId } });
@@ -399,5 +468,7 @@ export default {
   setfavorite,
   getMyAlbums,
   getFavoriteAlbums,
+  searchFavoriteAlbums,
   deleteAlbum,
 };
+

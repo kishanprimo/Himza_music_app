@@ -406,6 +406,7 @@ async function getMyAlbums(req: Request, res: Response) {
 
 // get fav albums =============================================
 async function getFavoriteAlbums(req: Request, res: Response) {
+
   try {
     const user = req.user;
     const albums = await album_service.getFavoriteAlbums(
@@ -425,6 +426,43 @@ async function getFavoriteAlbums(req: Request, res: Response) {
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
+
+// search from favorite album list ========================================
+// search favorite albums =============================================
+async function searchFavoriteAlbums(req: Request, res: Response) {
+  console.log(req.body);
+  
+  try {
+    const user = req.user;
+
+    const search: string = req.body.search;
+    const page: number = parseInt(req.body.page) || 1;
+    const limit: number = parseInt(req.body.limit) || 10;
+
+    const result = await album_service.searchFavoriteAlbums(
+      user.user_id,
+      search,
+      page,
+      limit
+    );
+
+    if (!result)
+      return response_service.notFoundResponse(
+        res,
+        "Albums not found."
+      );
+
+    return response_service.successResponse(
+      res,
+      "Albums fetched successfully.",
+      result
+    );
+  } catch (err: any) {
+    logger.error("Error searching favorite albums:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 
 // delete album =====================================
 async function deleteAlbum(req: Request, res: Response) {
@@ -463,5 +501,6 @@ export {
   setfavorite,
   getMyAlbums,
   getFavoriteAlbums,
+  searchFavoriteAlbums,
   deleteAlbum,
 };

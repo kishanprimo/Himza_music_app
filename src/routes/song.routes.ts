@@ -21,7 +21,7 @@ const router = Router();
 router.post(
   "/get-trending-songs",
   validateBody(paginationSchema),
-  getTrendingSongs
+  getTrendingSongs,
 );
 
 router.post(
@@ -32,21 +32,20 @@ router.post(
       page: z.string().optional(),
       limit: z.string().optional(),
       search: z.string().optional(),
-    })
+    }),
   ),
-  getAllSongs
+  getAllSongs,
 );
 
 router.get("/next-song", getNextSong);
-
 
 router.use(authenticate);
 router.post(
   "/get",
   validateBody(
-    z.object({ song_id: z.string().min(1, "song_id is required.") })
+    z.object({ song_id: z.string().min(1, "song_id is required.") }),
   ),
-  getSong
+  getSong,
 );
 router.post(
   "/",
@@ -55,34 +54,45 @@ router.post(
       artist_id: z.string(),
       page: z.string().optional(),
       limit: z.string().optional(),
-    })
+    }),
   ),
-  getMySongs
+  getMySongs,
 );
 router.post(
   "/favorite",
   validateBody(
-    z.object({ song_id: z.string().min(1, "song_id is required.") })
+    z.object({ song_id: z.string().min(1, "song_id is required.") }),
   ),
-  setfavorite
+  setfavorite,
 );
+// search favorite songs
+// router.post(
+//   "/search-favorite-songs",
+//   validateBody(
+//     z.object(
+//       { search: z.string().min(1, "search is required") },
+//       z.object({ page: z.string().optional(), limit: z.string().optional() }),
+//     ),
+//   ),
+//   searchFavoriteSongs,
+// );
 router.post(
   "/download",
   validateBody(
-    z.object({ song_id: z.string().min(1, "song_id is required.") })
+    z.object({ song_id: z.string().min(1, "song_id is required.") }),
   ),
-  setDownloaded
+  setDownloaded,
 );
 
 router.post(
   "/get-favorite-songs",
   validateBody(paginationSchema),
-  getfavoriteSongs
+  getfavoriteSongs,
 );
 router.post(
   "/get-downloaded-songs",
   validateBody(paginationSchema),
-  getDownloadedSongs
+  getDownloadedSongs,
 );
 
 export default router;
