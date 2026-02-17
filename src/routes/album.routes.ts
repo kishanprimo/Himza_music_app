@@ -63,7 +63,7 @@ router.post(
   removeSongsFromAlbum,
 );
 router.post("/get-my-playlist", authenticate, validateBody(
-    z.object({ page: z.string().optional(), limit: z.string().optional() }),
+    z.object({ page: z.coerce.number().optional(), limit: z.coerce.number().optional() }),
   ), getMyAlbums);
 router.post(
   "/get-favorite-albums",
