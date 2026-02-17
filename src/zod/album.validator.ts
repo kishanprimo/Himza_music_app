@@ -11,7 +11,7 @@ export const createAlbumSchema = z.object({
         .array(z.string())
         .min(1, 'At least one song is required').optional(),
     description: z.string().optional(),
-    is_private: z.string({
+    is_private: z.boolean({
         required_error: 'is_private is required',
     })
 });
@@ -25,7 +25,7 @@ export const updateAlbumSchema = z.object({
         .string({ required_error: 'Title is required' })
         .min(1, 'Title is required').optional(),
     description: z.string().optional(),
-    is_private: z.string({
+    is_private: z.boolean({
         required_error: 'is_private is required',
     }).optional()
 });
