@@ -180,10 +180,10 @@ if (isNaN(limit) || limit < 1) limit = 10;
       count: searchHistorys.count,
       rows,
       pagination: {
-        page,
-        limit,
-        total: searchHistorys.count,
-        pages: Math.ceil(searchHistorys.count / limit),
+        current_page:page,
+        records_per_page:limit,
+        total_records: searchHistorys.count,
+        total_pages: Math.ceil(searchHistorys.count / limit),
       },
     };
   } catch (err) {
