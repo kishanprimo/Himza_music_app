@@ -38,6 +38,8 @@ async function addToSearchHistory(req: Request, res: Response) {
 }
 
 async function getSearchHistory(req: Request, res: Response) {
+  console.log(req.body);
+  
   try {
     if (!req.user) {
       return response_service.successResponse(

@@ -7,6 +7,7 @@ import {
   song_service,
   user_service,
 } from ".";
+import { and } from "sequelize";
 
 async function addToSearchHistory(
   userId: number,
@@ -98,13 +99,20 @@ async function getSearchHistory(
   limit: number = 10
 ): Promise<any> {
   try {
+    page = parseInt(page as any, 10);
+limit = parseInt(limit as any, 10);
+
+if (isNaN(page) || page < 1) page = 1;
+if (isNaN(limit) || limit < 1) limit = 10;
+
+
     const offset = (page - 1) * limit;
 
     const searchHistorys = await searchHistory.findAndCountAll({
       where: { user_id: userId },
       order: [["updatedAt", "DESC"]],
-      limit,
-      offset,
+       limit: Number(limit),
+  offset: Number(offset),
     });
 
     // If no search history found, return default structure
@@ -171,6 +179,12 @@ async function getSearchHistory(
     return {
       count: searchHistorys.count,
       rows,
+      pagination: {
+        page,
+        limit,
+        total: searchHistorys.count,
+        pages: Math.ceil(searchHistorys.count / limit),
+      },
     };
   } catch (err) {
     console.error("Error fetching search history:", err);
