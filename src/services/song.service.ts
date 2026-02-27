@@ -630,9 +630,12 @@ async function getTrendingSongs(
     const total = await song.count({ where: { song_id: songIds } });
     return {
       data: songs,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      current_page:page,
+      records_per_page:limit,
+
+      total_records:total,
+
+      total_pages: Math.ceil(total / limit),
     };
   } catch (err) {
     logger.error("Error fetching trending songs:", err);
