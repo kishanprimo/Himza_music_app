@@ -262,9 +262,7 @@ async function searchFavoriteSongs(
       ],
     });
 
-    const songs = rows.map((fav: any) =>
-      fav.get({ plain: true }).song
-    );
+    const songs = rows.map((fav: any) => fav.get({ plain: true }).song);
 
     return {
       data: songs,
@@ -279,7 +277,6 @@ async function searchFavoriteSongs(
     throw err;
   }
 }
-
 
 async function getDownloadedSongs(
   userId: number,
@@ -429,9 +426,7 @@ async function searchDownloadedSongs(
       ],
     });
 
-    const songs = rows.map((item: any) =>
-      item.get({ plain: true }).song
-    );
+    const songs = rows.map((item: any) => item.get({ plain: true }).song);
 
     return {
       data: songs,
@@ -446,9 +441,6 @@ async function searchDownloadedSongs(
     throw err;
   }
 }
-
-
-
 
 async function getAllSongs(
   albumId?: number,
@@ -630,12 +622,12 @@ async function getTrendingSongs(
     const total = await song.count({ where: { song_id: songIds } });
     return {
       data: songs,
-      current_page:page,
-      records_per_page:limit,
-
-      total_records:total,
-
-      total_pages: Math.ceil(total / limit),
+      pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_records: total,
+        total_pages: Math.ceil(total / limit),
+      },
     };
   } catch (err) {
     logger.error("Error fetching trending songs:", err);
