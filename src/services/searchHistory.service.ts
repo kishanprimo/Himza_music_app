@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { SearchHistory,searchHistory, MusicSinger, User } =db;
+const { SearchHistory, searchHistory, MusicSinger, User } = db;
 import {
   album_service,
   genre_category_service,
@@ -15,7 +15,7 @@ async function addToSearchHistory(
   songId?: number,
   artistId?: number,
   albumId?: number,
-  genreId?: number
+  genreId?: number,
 ): Promise<any> {
   try {
     let whereCondition: any = {
@@ -78,10 +78,9 @@ async function addToSearchHistory(
   }
 }
 
-
 async function removeFromSearchHistory(
   userId: number,
-  searchId: number
+  searchId: number,
 ): Promise<any> {
   try {
     const searchHistorys = await searchHistory.destroy({
@@ -96,23 +95,22 @@ async function removeFromSearchHistory(
 async function getSearchHistory(
   userId: number,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<any> {
   try {
     page = parseInt(page as any, 10);
-limit = parseInt(limit as any, 10);
+    limit = parseInt(limit as any, 10);
 
-if (isNaN(page) || page < 1) page = 1;
-if (isNaN(limit) || limit < 1) limit = 10;
-
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
 
     const offset = (page - 1) * limit;
 
     const searchHistorys = await searchHistory.findAndCountAll({
       where: { user_id: userId },
       order: [["updatedAt", "DESC"]],
-       limit: Number(limit),
-  offset: Number(offset),
+      limit: Number(limit),
+      offset: Number(offset),
     });
 
     // If no search history found, return default structure
@@ -121,7 +119,7 @@ if (isNaN(limit) || limit < 1) limit = 10;
     }
 
     // Convert to JSON
-    let rows = searchHistorys.rows.map((search:any) => search.toJSON());
+    let rows = searchHistorys.rows.map((search: any) => search.toJSON());
 
     // Enrich data
     rows = await Promise.all(
@@ -147,41 +145,41 @@ if (isNaN(limit) || limit < 1) limit = 10;
             const artist = await user_service.getUser(
               { user_id: search.artist_id },
               [],
-              ["user_id", "full_name", "profile_pic"]
+              ["user_id", "full_name", "profile_pic"],
             );
             return { ...search, artist };
           }
           if (search.type === "album") {
             const album = await album_service.getAlbum(
               { album_id: search.album_id },
-              []
+              [],
             );
             return { ...search, album };
           }
           if (search.type === "genre") {
             const genre = await genre_category_service.getGenreById(
-              search.genre_id
+              search.genre_id,
             );
             return { ...search, genre };
           }
         } catch (e) {
           console.warn(
             `Failed to enrich ${search.type} ID in search history:`,
-            e
+            e,
           );
         }
 
         // Fallback to raw entry if enrichment fails
         return search;
-      })
+      }),
     );
 
     return {
       count: searchHistorys.count,
       rows,
       pagination: {
-        current_page:page,
-        records_per_page:limit,
+        current_page: page,
+        records_per_page: limit,
         total_records: searchHistorys.count,
         total_pages: Math.ceil(searchHistorys.count / limit),
       },

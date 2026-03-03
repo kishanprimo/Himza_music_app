@@ -8,6 +8,8 @@ const {
   MusicSinger,
   song,
   User,
+  favorites,
+  Downloads
 } = db;
 import { IGenre } from "../types";
 
@@ -102,8 +104,9 @@ interface PaginatedSongsResult {
 async function getSongsByGenre(
   genreId: number,
   page: number = 1,
-  pageSize: number = 10
-): Promise<PaginatedSongsResult> {
+  pageSize: number = 10,
+  userId:number
+): Promise<any> {
   console.log("Genre Id !@!@112", genreId);
   try {
     const offset = (page - 1) * pageSize;
@@ -142,10 +145,27 @@ async function getSongsByGenre(
       ],
     });
     const song_counts = await song.count({ where: { genre_id: genreId } });
+    console.log("song_counts", songs.get("song_id"));
+    
     const data = songs.map((songs: any) => {
       const songJson = songs.toJSON();
+       const songId = songs.get("song_id");
+
+    const is_favorite = userId
+      ?  favorites.findOne({
+          where: { user_id: userId, song_id: songId },
+        })
+      : null;
+
+    const is_downloaded = userId
+      ?  Downloads.findOne({
+          where: { user_id: userId, song_id: songId },
+        })
+      : null;
       return {
         ...songJson,
+        is_favorite:!!is_favorite ,
+        is_downloaded:!!is_downloaded ,
         genre: {
           ...songJson.genre,
           song_counts: song_counts,
@@ -154,10 +174,12 @@ async function getSongsByGenre(
     });
     return {
       data,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      pagination: {
+        current_page:page,
+        records_per_page:pageSize,
+        total_records: total,
+        total_pages: Math.ceil(total / pageSize),
+      },
     };
   } catch (err) {
     throw err;
@@ -181,3 +203,4 @@ export default {
   getGenreById,
   updateGenre,
 };
+

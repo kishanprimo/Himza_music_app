@@ -123,13 +123,7 @@ async function getfavoriteSongs(
   userId: number,
   page: number = 1,
   limit: number = 10,
-): Promise<{
-  data: any[];
-  total: number;
-  page: number;
-  totalPages: number;
-  limit: number;
-}> {
+): Promise<any> {
   try {
     const offset = (page - 1) * limit;
     let songs: any[] = await favorites.findAll({
@@ -178,10 +172,13 @@ async function getfavoriteSongs(
     songs = await songs.map((song) => song.get("song"));
     return {
       data: songs,
-      total,
-      limit,
-      page,
-      totalPages: Math.ceil(total / limit),
+      pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_records: total,
+        total_pages: Math.ceil(total / limit),
+      },
+     
     };
   } catch (err) {
     throw err;
@@ -442,6 +439,7 @@ async function searchDownloadedSongs(
   }
 }
 
+// all songs =====================================================
 async function getAllSongs(
   albumId?: number,
   page: number = 1,
@@ -538,6 +536,9 @@ async function getAllSongs(
         const is_favorite = await favorites.findOne({
           where: { user_id: userId, song_id: song.get("song_id") },
         });
+        const is_downloaded = await Downloads.findOne({
+          where: { user_id: userId, song_id: song.get("song_id") },
+        });
         const download_counts = await Downloads.count({
           where: { song_id: song.get("song_id") },
         });
@@ -547,6 +548,7 @@ async function getAllSongs(
         return {
           ...song.toJSON(),
           is_favorite: !!is_favorite,
+          is_downloaded: !!is_downloaded,
           download_counts,
           listen_counts,
         };
@@ -568,9 +570,11 @@ async function getAllSongs(
   }
 }
 
+// trending songs list =====================================================
 async function getTrendingSongs(
   page: number = 1,
   limit: number = 10,
+  userId: number = 0,
 ): Promise<any> {
   try {
     const songsData = await History.findAll({
@@ -582,6 +586,7 @@ async function getTrendingSongs(
       order: [[fn("COUNT", col("song_id")), "DESC"]],
     });
     const songIds = songsData.map((song: any) => song.get("song_id") as number);
+  
     const songs = await song.findAll({
       where: { song_id: songIds },
       include: [
@@ -619,9 +624,50 @@ async function getTrendingSongs(
       limit,
       offset: (page - 1) * limit,
     });
+
+    // for favorite and download parameter ==================================
+    // Get song IDs from fetched songs
+    const fetchedSongIds = songs.map((s: any) => s.get("song_id"));
+
+    // Get user favorites in ONE query
+    const userFavorites = userId
+      ? await favorites.findAll({
+          where: {
+            user_id: userId,
+            song_id: { [Op.in]: fetchedSongIds },
+          },
+          attributes: ["song_id"],
+        })
+      : [];
+
+    // Get user downloads in ONE query
+    const userDownloads = userId
+      ? await Downloads.findAll({
+          where: {
+            user_id: userId,
+            song_id: { [Op.in]: fetchedSongIds },
+          },
+          attributes: ["song_id"],
+        })
+      : [];
+
+    const favoriteSet = new Set(userFavorites.map((f: any) => f.song_id));
+
+    const downloadSet = new Set(userDownloads.map((d: any) => d.song_id));
+
+    // Attach flags to each song
+    const finalSongs = songs.map((s: any) => {
+      const songId = s.get("song_id");
+
+      return {
+        ...s.toJSON(),
+        is_favorite: favoriteSet.has(songId),
+        is_downloaded: downloadSet.has(songId),
+      };
+    });
     const total = await song.count({ where: { song_id: songIds } });
     return {
-      data: songs,
+      data: finalSongs,
       pagination: {
         current_page: page,
         records_per_page: limit,

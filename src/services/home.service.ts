@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Album, Genre, HomeBlocks, MusicSinger, song, User } = db;
+const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites } = db;
 import { IHomeBlocks, ISong } from "../types";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { genre_category_service, user_service } from ".";
@@ -8,7 +8,8 @@ import { Sequelize } from "sequelize";
 
 async function getAllSongsByGenre(
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  userId:number,
 ): Promise<any[]> {
   try {
     const offset = (page - 1) * pageSize;
@@ -210,7 +211,8 @@ async function getBlock(
   blockId: number,
   limits: { album?: number; song?: number; genre?: number; artist?: number },
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  userId:number,
 ): Promise<Partial<IHomeBlocks> | null> {
   console.log("getBlock called with:", { blockId });
   try {
@@ -227,6 +229,8 @@ async function getBlock(
       genre_count = block.genre_ids?.length ?? 0,
       artist_count = block.artist_ids?.length ?? 0;
     const isMix = block.type === "mix";
+
+    // album block ===========================================
     if (block.type === "album" || (isMix && limits["album"])) {
       if (limits["album"]) {
         start = (page - 1) * limits["album"];
@@ -249,7 +253,7 @@ async function getBlock(
         }))
       );
     }
-
+    // song block ===========================================
     if (block.type === "song" || (isMix && limits["song"])) {
       if (limits["song"]) {
         start = (page - 1) * limits["song"];
@@ -276,10 +280,18 @@ async function getBlock(
               },
             ],
           })) as Partial<ISong>;
+          const is_favorite = await favorites.findOne({
+          where: { user_id: userId, song_id: id },
+        });
+        const is_downloaded = await Downloads.findOne({
+          where: { user_id: userId, song_id: id },
+        });
 
           if (!Song) return null;
           return {
             song_id: Song.song_id,
+            is_favorite:!!is_favorite,
+            is_downloaded:!!is_downloaded,
             thumbnail: Song.thumbnail,
             audio: Song.audio,
             title: Song.title,
@@ -294,10 +306,12 @@ async function getBlock(
           };
         })
       );
+     
 
       data.push(...songs.filter(Boolean)); // filter out nulls
     }
 
+    // genre block ============================================
     if (block.type === "genre" || (isMix && limits["genre"])) {
       if (limits["genre"]) {
         start = (page - 1) * limits["genre"];
@@ -321,6 +335,7 @@ async function getBlock(
       );
     }
 
+    // artist block =============================================
     if (block.type === "artist" || (isMix && limits["artist"])) {
       if (limits["artist"]) {
         start = (page - 1) * limits["artist"];

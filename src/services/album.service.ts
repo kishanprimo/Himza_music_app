@@ -9,6 +9,7 @@ const {
   MusicSinger,
   song,
   User,
+  searchPlaylistHistory,
 } = db;
 import { IAlbum, ISong } from "../types";
 import { Sequelize, Order } from "sequelize";
@@ -225,7 +226,7 @@ async function isfavorite(userId: number, albumId: number): Promise<boolean> {
 }
 
 async function setfavorite(userId: number, albumId: number): Promise<boolean> {
-  console.log("setfavorite", userId, albumId,favoriteAlbums);
+  console.log("setfavorite", userId, albumId, favoriteAlbums);
   try {
     const favorite = await favoriteAlbums.findOne({
       where: { user_id: userId, album_id: albumId },
@@ -247,14 +248,8 @@ async function setfavorite(userId: number, albumId: number): Promise<boolean> {
 async function getMyAlbums(
   userId: number,
   page: number = 1,
-  limit: number = 10
-): Promise<{
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  albums: any[];
-}> {
+  limit: number = 10,
+): Promise<any> {
   try {
     const offset = (page - 1) * limit;
 
@@ -316,19 +311,226 @@ async function getMyAlbums(
 
     return {
       albums,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      
+      pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_records: total,
+        total_pages: Math.ceil(total / limit),
+      },
     };
   } catch (err) {
     throw err;
   }
 }
+async function addToPlaylistSearchHistory(
+  userId: number,
+  albumId: number
+): Promise<any> {
+  try {
+    if (!albumId) throw new Error("album_id is required");
 
+    const whereCondition = {
+      user_id: userId,
+      album_id: albumId,
+    };
 
+    let history = await searchPlaylistHistory.findOne({
+      where: whereCondition,
+    });
 
+    if (history) {
+      await history.update({}); // refresh updatedAt
+      return history.toJSON();
+    }
+
+    history = await searchPlaylistHistory.create({
+      user_id: userId,
+      album_id: albumId,
+    });
+
+    return history.toJSON();
+  } catch (err) {
+    throw err;
+  }
+}
+async function removeFromPlaylistSearchHistory(
+  userId: number,
+  searchId: number
+): Promise<number> {
+  try {
+    if (!searchId || isNaN(searchId)) {
+      throw new Error("Invalid search_id");
+    }
+
+    return await searchPlaylistHistory.destroy({
+      where: {
+        user_id: userId,
+        search_id: searchId,
+      },
+    });
+  } catch (err) {
+    throw err;
+  }
+}
+async function getPlaylistSearchHistory(
+  userId: number,
+  page: number = 1,
+  limit: number = 10
+): Promise<any> {
+  try {
+    page = parseInt(page as any, 10);
+    limit = parseInt(limit as any, 10);
+
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+
+    const offset = (page - 1) * limit;
+
+    const history = await searchPlaylistHistory.findAndCountAll({
+      where: { user_id: userId },
+      order: [["updatedAt", "DESC"]],
+      limit,
+      offset,
+      include: [
+        {
+          model: Album,
+          as: "album",
+          include: [
+            {
+              model: AlbumSong,
+              as: "songs",
+              attributes: ["album_song_id"],
+              required: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!history || history.count === 0) {
+      return {
+        albums: [],
+        pagination: {
+          current_page: page,
+          records_per_page: limit,
+          total_records: 0,
+          total_pages: 0,
+        },
+      };
+    }
+
+    const albums = history.rows.map((item: any) => {
+      const raw = item.get({ plain: true }).album;
+
+      return {
+        search_id: item.search_id, // ✅ added this line
+        ...raw,
+        songs_count: raw?.songs?.length || 0,
+      };
+    });
+
+    return {
+      albums,
+      pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_records: history.count,
+        total_pages: Math.ceil(history.count / limit),
+      },
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+async function searchPlaylist(
+  userId: number,
+  search: string,
+  page: number = 1,
+  limit: number = 10,
+) {
+  try {
+    const currentPage = Number(page) || 1;
+    const perPage = Number(limit) || 10;
+    const offset = (currentPage - 1) * perPage;
+
+    if (!search?.trim()) {
+      return {
+        albums: [],
+
+        total: 0,
+        page: currentPage,
+        limit: perPage,
+        totalPages: 0,
+      };
+    }
+
+    const { count, rows } = await Album.findAndCountAll({
+      where: {
+        user_id: userId,
+        [Op.and]: [
+          Sequelize.where(Sequelize.fn("LOWER", Sequelize.col("title")), {
+            [Op.like]: `%${search.trim().toLowerCase()}%`,
+          }),
+        ],
+      },
+      limit: perPage,
+      offset,
+      order: [["album_id", "DESC"]],
+      include: [
+        {
+          model: AlbumSong,
+          as: "songs",
+          attributes: ["album_song_id"],
+          separate: true,
+          order: [["album_song_id", "DESC"]],
+          required: false,
+          include: [
+            {
+              model: song,
+              as: "song",
+              attributes: ["song_id", "thumbnail", "title", "audio"],
+              include: [
+                {
+                  model: MusicSinger,
+                  as: "artists",
+                  attributes: ["music_singer_id", "user_id"],
+                  include: [
+                    {
+                      model: User,
+                      as: "singer",
+                      attributes: ["user_id", "full_name", "profile_pic"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const albums = rows.map((album: any) => {
+      const rawAlbum = album.get({ plain: true });
+
+      return {
+        ...rawAlbum,
+        songs_count: rawAlbum.songs?.length || 0,
+      };
+    });
+
+    return {
+      albums,
+      pagination: {
+        current_page: currentPage,
+        records_per_page: perPage,
+        total_records: count,
+        total_pages: Math.ceil(count / perPage),
+      },
+    };
+  } catch (err) {
+    throw err;
+  }
+}
 async function getFavoriteAlbums(
   userId: number,
   page: number = 1,
@@ -384,7 +586,7 @@ async function searchFavoriteAlbums(
   userId: number,
   search: string,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<{
   albums: any[];
   total: number;
@@ -404,7 +606,7 @@ async function searchFavoriteAlbums(
     if (!favoriteList.length) return null;
 
     const albumIds = favoriteList.map(
-      (item: any) => item.get({ plain: true }).album_id
+      (item: any) => item.get({ plain: true }).album_id,
     );
 
     // Search albums from those IDs
@@ -445,7 +647,6 @@ async function searchFavoriteAlbums(
   }
 }
 
-
 async function deleteAlbum(albumId: number): Promise<number> {
   try {
     const result = await Album.destroy({ where: { album_id: albumId } });
@@ -464,7 +665,11 @@ export default {
   updateAlbum,
   getAlbum,
   getAlbumData,
+  addToPlaylistSearchHistory,
+  removeFromPlaylistSearchHistory,
+  getPlaylistSearchHistory,
   getAllAlbums,
+  searchPlaylist,
   isfavorite,
   setfavorite,
   getMyAlbums,
@@ -472,6 +677,3 @@ export default {
   searchFavoriteAlbums,
   deleteAlbum,
 };
-
-
-

@@ -3,12 +3,13 @@ import { getAllBlocks, getBlockById, songsByGenre } from "../controllers/home.co
 import { validateBody } from "../middleware/zod.middleware";
 import { paginationSchema } from "../zod/pagenation.validator";
 import { z } from "zod";
+import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
 router.get('/all-blocks', getAllBlocks);
 
-router.post('', validateBody(
+router.post('',authenticate, validateBody(
     z.object({
         block_id: z.string().min(1, 'block_id is required.'),
         page: z.string().optional(),

@@ -209,6 +209,151 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
   }
 }
 
+// search in playlist ================================================
+export async function searchPlaylist(req: Request, res: Response) {
+  console.log("Search Playlist", req.body);
+  
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return response_service.unauthorizedResponse(
+        res,
+        "User not authenticated."
+      );
+    }
+
+    const search = req.body.search as string;
+    const page = parseInt(req.body.page as string) || 1;
+    const limit = parseInt(req.body.limit as string) || 10;
+
+    const result = await album_service.searchPlaylist(
+      userId,
+      search,
+      page,
+      limit
+    );
+
+    return response_service.successResponse(
+      res,
+      "Playlist search fetched successfully.",
+      result
+    );
+  } catch (err: any) {
+    logger.error("Error searching playlist:", err);
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
+  }
+}
+export async function addPlaylistSearchHistory(
+  req: Request,
+  res: Response
+) {
+  try {
+    const userId = req.user?.user_id;
+    const albumId = parseInt(req.body.album_id);
+
+    if (!userId) {
+      return response_service.unauthorizedResponse(
+        res,
+        "User not authenticated."
+      );
+    }
+
+    const result = await album_service.addToPlaylistSearchHistory(
+      userId,
+      albumId
+    );
+
+    return response_service.successResponse(
+      res,
+      "Playlist added to search history.",
+      result
+    );
+  } catch (err: any) {
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+export async function removePlaylistSearchHistory(
+  req: Request,
+  res: Response
+) {
+  console.log("Remove Playlist Search History", req.body);
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return response_service.unauthorizedResponse(
+        res,
+        "User not authenticated."
+      );
+    }
+
+    const searchId = req.body.search_id;
+
+    if (!searchId || isNaN(searchId)) {
+      return response_service.badRequestResponse(
+        res,
+        "Valid search_id is required."
+      );
+    }
+
+    const deleted = await album_service.removeFromPlaylistSearchHistory(
+      userId,
+      searchId
+    );
+
+    if (!deleted) {
+      return response_service.notFoundResponse(
+        res,
+        "History not found."
+      );
+    }
+
+    return response_service.successResponse(
+      res,
+      "Playlist removed from search history.",
+      null
+    );
+  } catch (err: any) {
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+export async function getPlaylistSearchHistory(
+  req: Request,
+  res: Response
+) {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return response_service.unauthorizedResponse(
+        res,
+        "User not authenticated."
+      );
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const result = await album_service.getPlaylistSearchHistory(
+      userId,
+      page,
+      limit
+    );
+
+    return response_service.successResponse(
+      res,
+      "Playlist search history fetched successfully.",
+      result
+    );
+  } catch (err: any) {
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 // update album ====================================================
 async function updateAlbum(req: Request, res: Response) {
   try {
@@ -406,6 +551,9 @@ async function getMyAlbums(req: Request, res: Response) {
   }
 }
 
+
+
+
 // get fav albums =============================================
 async function getFavoriteAlbums(req: Request, res: Response) {
 
@@ -506,3 +654,4 @@ export {
   searchFavoriteAlbums,
   deleteAlbum,
 };
+

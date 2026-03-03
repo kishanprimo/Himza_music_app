@@ -28,6 +28,7 @@ router.post(
 
 router.post(
   "/all-songs",
+  authenticate,
   validateBody(
     z.object({
       album_id: z.string().optional(),

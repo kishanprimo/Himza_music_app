@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 
 async function songsByGenre(req: Request, res: Response) {
   try {
-    const songs = await home_service.getAllSongsByGenre();
+    const songs = await home_service.getAllSongsByGenre(req.body.page,req.body.limit,req.user.user_id);
     if (!songs || songs.length === 0) {
       return response_service.notFoundResponse(res, "No songs found.");
     }
@@ -114,7 +114,8 @@ async function getBlockById(req: Request, res: Response) {
       parseInt(req.body.block_id),
       req.body.limits ?? {},
       parseInt(req.body.page) || req.body.page,
-      parseInt(req.body.limit) || req.body.limit
+      parseInt(req.body.limit) || req.body.limit,
+      req.user.user_id
     );
     if (!block) {
       return response_service.notFoundResponse(res, "Block not found.");

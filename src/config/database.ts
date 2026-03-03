@@ -1,7 +1,4 @@
-
 import db from "../models";
-
-
 
 // Test connection and sync models
 export const initializeDatabase = async () => {

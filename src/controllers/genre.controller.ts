@@ -112,7 +112,8 @@ async function getSongsByGenre(req: Request, res: Response) {
     const songs = await genre_category_service.getSongsByGenre(
       genreId,
       req.body.page,
-      req.body.limit
+      req.body.limit,
+      req.user?.user_id
     );
     if (!songs)
       return response_service.notFoundResponse(

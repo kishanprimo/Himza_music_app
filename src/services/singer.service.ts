@@ -84,6 +84,7 @@ async function mySongs(
         const favourites_count = await favorites.count({
           where: { song_id: songData.song.song_id },
         });
+        
         const listens_count = await History.count({
           where: { song_id: songData.song.song_id },
         });
@@ -141,6 +142,14 @@ async function isfavorite(userId: number, artistId: number): Promise<boolean> {
     throw err;
   }
 }
+
+// async function isDownloaded(userId:number,artistId:number): Promise<boolean> {
+//   try {
+//     const download = await 
+//   } catch(err) {
+//     throw err
+//   }
+// }
 
 async function setfavorite(userId: number, artistId: number): Promise<boolean> {
   try {

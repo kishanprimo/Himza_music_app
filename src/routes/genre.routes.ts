@@ -8,6 +8,7 @@ import {
 import { validateBody } from "../middleware/zod.middleware";
 import { paginationSchema } from "../zod/pagenation.validator";
 import { z } from "zod";
+import { authenticate } from "../middleware/auth.middleware";
 const router = Router();
 
 router.post(
@@ -24,6 +25,7 @@ router.post(
 );
 router.post(
   "/songs",
+  authenticate,
   validateBody(
     z.object({
       genre_id: z.string().min(1, "genre_id is required."),

@@ -10,6 +10,10 @@ import {
   removeSongsFromAlbum,
   deleteAlbum,
   searchFavoriteAlbums,
+  getPlaylistSearchHistory,
+  addPlaylistSearchHistory,
+  removePlaylistSearchHistory,
+  searchPlaylist,
 } from "../controllers/album.controller";
 import { addSongsToAlbum } from "../controllers/album.controller";
 import z from "zod";
@@ -62,9 +66,55 @@ router.post(
   ),
   removeSongsFromAlbum,
 );
-router.post("/get-my-playlist", authenticate, validateBody(
-    z.object({ page: z.coerce.number().optional(), limit: z.coerce.number().optional() }),
-  ), getMyAlbums);
+
+router.post("/search-playlist",
+  authenticate,
+  validateBody(
+    z.object({
+      search: z.string().min(1, "search is required."),
+      page: z.string().optional(),
+      limit: z.string().optional(),
+    })
+  ),
+  searchPlaylist
+)
+router.post(
+  "/add-playlist-search-history",
+  authenticate,
+  validateBody(
+    z.object({ album_id: z.string().min(1, "album_id is required.") }),
+  ),
+  addPlaylistSearchHistory,
+);
+router.post(
+  "/remove-playlist-search-history",
+  authenticate,
+  validateBody(
+    z.object({
+      search_id: z.coerce.number().int().positive(),
+    }),
+  ),
+  removePlaylistSearchHistory,
+);
+router.post(
+  "/get-playlist-search-history",
+  authenticate,
+  validateBody(
+    z.object({ page: z.string().optional(), limit: z.string().optional() }),
+  ),
+  getPlaylistSearchHistory,
+);
+router.post(
+  "/get-my-playlist",
+  authenticate,
+  validateBody(
+    z.object({
+      page: z.coerce.number().optional(),
+      limit: z.coerce.number().optional(),
+    }),
+  ),
+  getMyAlbums,
+);
 router.post(
   "/get-favorite-albums",
   authenticate,
@@ -74,14 +124,19 @@ router.post(
   getFavoriteAlbums,
 );
 
-// search favorite albums 
-router.post("/search-favorite-albums", authenticate, validateBody(
-    z.object({ 
+// search favorite albums
+router.post(
+  "/search-favorite-albums",
+  authenticate,
+  validateBody(
+    z.object({
       search: z.string().min(1, "search is required."),
-      page: z.string().optional(), 
-      limit: z.string().optional() 
+      page: z.string().optional(),
+      limit: z.string().optional(),
     }),
-  ), searchFavoriteAlbums);
+  ),
+  searchFavoriteAlbums,
+);
 
 router.post(
   "/delete-album",

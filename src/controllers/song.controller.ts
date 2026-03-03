@@ -121,6 +121,7 @@ async function getMySongs(req: Request, res: Response) {
         req.user.user_id,
         req.body.artist_id,
       );
+    
     const songs_count = await singer_service.mySongsCount(
       parseInt(req.body.artist_id),
     );
@@ -146,6 +147,9 @@ async function getMySongs(req: Request, res: Response) {
           },
           is_favorite: req.user.user_id
             ? await song_service.isfavorite(req.user?.user_id, song.song_id)
+            : false,
+          is_downloaded: req.user.user_id 
+            ? await song_service.isDownloaded(req.user?.user_id,song.song_id)
             : false,
           likes_count: await favorites.count({
             where: { song_id: song.song_id },
@@ -457,6 +461,7 @@ async function getAllSongs(req: Request, res: Response) {
       req.body.for_admin,
       req.body.search,
     );
+    
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
     return response_service.successResponse(
@@ -475,6 +480,7 @@ async function getTrendingSongs(req: Request, res: Response) {
     const songs = await song_service.getTrendingSongs(
       parseInt(req.body.page),
       parseInt(req.body.limit),
+      req.user?.user_id,
     );
     if (!songs)
       return response_service.notFoundResponse(res, "Songs not found.");
