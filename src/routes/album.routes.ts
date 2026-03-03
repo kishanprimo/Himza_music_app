@@ -72,8 +72,8 @@ router.post("/search-playlist",
   validateBody(
     z.object({
       search: z.string().min(1, "search is required."),
-      page: z.string().optional(),
-      limit: z.string().optional(),
+      page: z.number().optional(),
+      limit: z.number().optional(),
     })
   ),
   searchPlaylist
