@@ -16,6 +16,7 @@ import { Sequelize, Order } from "sequelize";
 import { song_service } from ".";
 import { Op } from "sequelize";
 
+
 // create album =================================================
 async function createAlbum(
   albumPayload: Partial<IAlbum>,
@@ -303,9 +304,12 @@ async function getMyAlbums(
     // Add songs_count without extra DB queries
     const albums = rows.map((album: any) => {
       const rawAlbum = album.get({ plain: true });
+        const songsCount = rawAlbum.songs?.length || 0;
+
+         delete rawAlbum.songs; 
       return {
         ...rawAlbum,
-        songs_count: rawAlbum.songs?.length || 0,
+       songs_count: songsCount,
       };
     });
 
@@ -658,6 +662,56 @@ async function deleteAlbum(albumId: number): Promise<number> {
   }
 }
 
+async function getAlbumSongs(
+  albumId: number,
+  page: number = 1,
+  limit: number = 10,
+  user_id?: number, // ✅ optional user_id added
+) {
+  const offset = (page - 1) * limit;
+
+  const albumSongs = await AlbumSong.findAll({
+    where: { album_id: albumId },
+    limit,
+    offset,
+    order: [["album_song_id", "DESC"]],
+    include: [
+      {
+        model: song,
+        as: "song",
+        attributes: ["song_id", "title", "thumbnail", "audio"],
+      },
+    ],
+  });
+
+  const total = await AlbumSong.count({ where: { album_id: albumId } });
+
+  // Map songs and add is_favorite if user_id exists
+  const songsWithFavorite = await Promise.all(
+    albumSongs.map(async (s: InstanceType<typeof AlbumSong>) => {
+      const songData = s.toJSON() as any;
+
+      if (user_id && songData.song) {
+        const is_favorite = await song_service.isfavorite(
+          user_id,
+          parseInt(songData.song.song_id)
+        );
+        return { ...songData.song, is_favorite };
+      }
+
+      return songData.song;
+    })
+  );
+
+  return {
+    songs: songsWithFavorite,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
 export default {
   createAlbum,
   addSongsToAlbum,
@@ -676,4 +730,5 @@ export default {
   getFavoriteAlbums,
   searchFavoriteAlbums,
   deleteAlbum,
+  getAlbumSongs,
 };

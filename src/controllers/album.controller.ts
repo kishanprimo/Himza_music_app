@@ -641,6 +641,32 @@ async function deleteAlbum(req: Request, res: Response) {
   }
 }
 
+async function getAlbumSongs(req: Request, res: Response) {
+  try {
+    const { album_id, page = 1, limit = 10 } = req.body;
+    const user_id = req.user?.user_id; // ✅ logged-in user id
+
+    const songs = await album_service.getAlbumSongs(
+      Number(album_id),
+      Number(page),
+      Number(limit),
+      user_id
+    );
+
+    if (!songs || songs.songs.length === 0) {
+      return response_service.notFoundResponse(res, "No songs found for this album");
+    }
+
+    return response_service.successResponse(
+      res,
+      "Album songs fetched successfully",
+      songs
+    );
+  } catch (err: any) {
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 export {
   createAlbum,
   updateAlbum,
@@ -653,5 +679,6 @@ export {
   getFavoriteAlbums,
   searchFavoriteAlbums,
   deleteAlbum,
+  getAlbumSongs,
 };
 

@@ -14,13 +14,15 @@ import {
   addPlaylistSearchHistory,
   removePlaylistSearchHistory,
   searchPlaylist,
+  getAlbumSongs,
+  addSongsToAlbum, // ✅ proper import
 } from "../controllers/album.controller";
-import { addSongsToAlbum } from "../controllers/album.controller";
 import z from "zod";
 import { createAlbumSchema } from "../zod/album.validator";
 
 const router = Router();
 
+// get album
 router.post(
   "/get",
   validateBody(
@@ -28,6 +30,8 @@ router.post(
   ),
   getAlbum,
 );
+
+// set favorite
 router.post(
   "/favorite",
   authenticate,
@@ -37,6 +41,7 @@ router.post(
   setfavorite,
 );
 
+// create album
 router.post(
   "/create-playlist",
   authenticate,
@@ -44,6 +49,7 @@ router.post(
   createAlbum,
 );
 
+// add songs to playlist
 router.post(
   "/add-songs-to-playlist",
   authenticate,
@@ -55,6 +61,8 @@ router.post(
   ),
   addSongsToAlbum,
 );
+
+// remove songs from playlist
 router.post(
   "/remove-songs-from-playlist",
   authenticate,
@@ -67,17 +75,21 @@ router.post(
   removeSongsFromAlbum,
 );
 
-router.post("/search-playlist",
+// search playlist
+router.post(
+  "/search-playlist",
   authenticate,
   validateBody(
     z.object({
       search: z.string().min(1, "search is required."),
-      page: z.coerce.number().optional(),   // ✅ FIX
-      limit: z.coerce.number().optional(), 
+      page: z.coerce.number().optional(),
+      limit: z.coerce.number().optional(),
     })
   ),
   searchPlaylist
-)
+);
+
+// playlist search history
 router.post(
   "/add-playlist-search-history",
   authenticate,
@@ -100,10 +112,12 @@ router.post(
   "/get-playlist-search-history",
   authenticate,
   validateBody(
-    z.object({ page: z.string().optional(), limit: z.string().optional() }),
+    z.object({ page: z.coerce.number().optional(), limit: z.coerce.number().optional() }),
   ),
   getPlaylistSearchHistory,
 );
+
+// get my albums
 router.post(
   "/get-my-playlist",
   authenticate,
@@ -115,11 +129,13 @@ router.post(
   ),
   getMyAlbums,
 );
+
+// get favorite albums
 router.post(
   "/get-favorite-albums",
   authenticate,
   validateBody(
-    z.object({ page: z.string().optional(), limit: z.string().optional() }),
+    z.object({ page: z.coerce.number().optional(), limit: z.coerce.number().optional() }),
   ),
   getFavoriteAlbums,
 );
@@ -131,13 +147,14 @@ router.post(
   validateBody(
     z.object({
       search: z.string().min(1, "search is required."),
-      page: z.string().optional(),
-      limit: z.string().optional(),
+      page: z.coerce.number().optional(),
+      limit: z.coerce.number().optional(),
     }),
   ),
   searchFavoriteAlbums,
 );
 
+// delete album
 router.post(
   "/delete-album",
   authenticate,
@@ -145,6 +162,20 @@ router.post(
     z.object({ album_id: z.string().min(1, "album_id is required.") }),
   ),
   deleteAlbum,
+);
+
+// get album songs
+router.post(
+  "/get-album-songs",
+  authenticate,
+  validateBody(
+    z.object({
+      album_id: z.coerce.number(),
+      page: z.coerce.number().optional(),
+      limit: z.coerce.number().optional(),
+    })
+  ),
+  getAlbumSongs, // ✅ use the correct controller function
 );
 
 export default router;
