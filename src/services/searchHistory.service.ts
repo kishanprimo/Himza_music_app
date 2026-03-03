@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { SearchHistory, searchHistory, MusicSinger, User } = db;
+const { SearchHistory, searchHistory, MusicSinger, User, favorites, Downloads } = db;
 import {
   album_service,
   genre_category_service,
@@ -139,7 +139,22 @@ async function getSearchHistory(
                 ],
               },
             ]);
-            return { ...search, song };
+            let is_favorite = false;
+            let is_downloaded = false;
+
+            if (song) {
+              const favorite = await favorites.findOne({
+                where: { user_id: userId, song_id: song.song_id },
+              });
+
+              const downloaded = await Downloads.findOne({
+                where: { user_id: userId, song_id: song.song_id },
+              });
+
+              is_favorite = !!favorite;
+              is_downloaded = !!downloaded;
+            }
+            return { ...search, song, is_favorite, is_downloaded };
           }
           if (search.type === "artist") {
             const artist = await user_service.getUser(

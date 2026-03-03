@@ -6,6 +6,7 @@ export async function search(req: Request, res: Response) {
   try {
     const { query, type, page = 1, limit = 10 } = req.body;
     const searchResults = await explore_service.search(
+      req.user.user_id,
       query,
       type,
       page,
