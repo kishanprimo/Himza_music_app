@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites } = db;
+const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites, favoriteArtists } = db;
 import { IHomeBlocks, ISong } from "../types";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { genre_category_service, user_service } from ".";
@@ -336,35 +336,48 @@ async function getBlock(
     }
 
     // artist block =============================================
-    if (block.type === "artist" || (isMix && limits["artist"])) {
-      if (limits["artist"]) {
-        start = (page - 1) * limits["artist"];
-        end = start + limits["artist"];
-      }
-      const allIds = block.artist_ids || [];
-      const paginatedIds = allIds.slice(start, end);
-      total += allIds.length;
-      const artists = await Promise.all(
-        paginatedIds.map((id: number) =>
-          user_service.getUser({ user_id: id.toString() })
-        )
-      );
-      data.push(
-        ...(await Promise.all(
-          artists.map(async (artist: any) => {
-            const songs_count = await MusicSinger.count({
-              where: { user_id: artist["user_id"] },
-            });
-            return {
-              user_id: artist["user_id"],
-              full_name: artist["full_name"],
-              profile_pic: artist["profile_pic"],
-              songs_count,
-            };
-          })
-        ))
-      );
-    }
+   if (block.type === "artist" || (isMix && limits["artist"])) {
+  if (limits["artist"]) {
+    start = (page - 1) * limits["artist"];
+    end = start + limits["artist"];
+  }
+
+  const allIds = block.artist_ids || [];
+  const paginatedIds = allIds.slice(start, end);
+  total += allIds.length;
+
+  const artists = await Promise.all(
+    paginatedIds.map((id: number) =>
+      user_service.getUser({ user_id: id.toString() })
+    )
+  );
+
+  data.push(
+    ...(await Promise.all(
+      artists.map(async (artist: any) => {
+        const songs_count = await MusicSinger.count({
+          where: { user_id: artist["user_id"] },
+        });
+
+        // 🔥 favorite check
+        const fav = await favoriteArtists.findOne({
+          where: {
+            user_id: userId,
+            artist_user_id: artist["user_id"],
+          },
+        });
+
+        return {
+          user_id: artist["user_id"],
+          full_name: artist["full_name"],
+          profile_pic: artist["profile_pic"],
+          songs_count,
+          artist_favorite: !!fav,
+        };
+      })
+    ))
+  );
+}
 
     return {
       block_id: block.block_id,

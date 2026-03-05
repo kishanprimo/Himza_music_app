@@ -145,7 +145,7 @@ async function getSongsByGenre(
       ],
     });
     const song_counts = await song.count({ where: { genre_id: genreId } });
-    console.log("song_counts", songs.get("song_id"));
+    // console.log("song_counts", songs.get("song_id"));
     
     const data = songs.map((songs: any) => {
       const songJson = songs.toJSON();

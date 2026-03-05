@@ -378,13 +378,18 @@ async function getDownloadedSongs(req: Request, res: Response) {
       req.body.page,
       req.body.limit,
     );
-    if (!songs)
+
+    if (!songs) {
       return response_service.notFoundResponse(res, "Songs not found.");
-    return response_service.successResponse(
-      res,
-      "Songs fetched successfully.",
-      songs,
-    );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Songs fetched successfully.",
+      data: songs.data,
+      Pagination: songs.Pagination,
+    });
+
   } catch (err: any) {
     logger.error("Error fetching downloaded songs:", err);
     return response_service.internalServerErrorResponse(res, err.message);

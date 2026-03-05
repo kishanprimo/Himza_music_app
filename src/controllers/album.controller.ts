@@ -644,7 +644,7 @@ async function deleteAlbum(req: Request, res: Response) {
 async function getAlbumSongs(req: Request, res: Response) {
   try {
     const { album_id, page = 1, limit = 10 } = req.body;
-    const user_id = req.user?.user_id; // ✅ logged-in user id
+    const user_id = req.user?.user_id;
 
     const songs = await album_service.getAlbumSongs(
       Number(album_id),
@@ -653,14 +653,10 @@ async function getAlbumSongs(req: Request, res: Response) {
       user_id
     );
 
-    if (!songs || songs.songs.length === 0) {
-      return response_service.notFoundResponse(res, "No songs found for this album");
-    }
-
     return response_service.successResponse(
       res,
       "Album songs fetched successfully",
-      songs
+      songs || { songs: [], total: 0 }
     );
   } catch (err: any) {
     return response_service.internalServerErrorResponse(res, err.message);

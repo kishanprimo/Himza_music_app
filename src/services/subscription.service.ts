@@ -13,7 +13,19 @@ async function getAllPlans(): Promise<any> {
         is_deleted: false,
       },
     });
-    return plans;
+
+    const formattedPlans = plans.map((plan: any) => {
+      const planData = plan.toJSON();
+
+      return {
+        ...planData,
+        features: planData.features
+          ? planData.features.split(",").map((f: string) => f.trim())
+          : [],
+      };
+    });
+
+    return formattedPlans;
   } catch (err) {
     throw err;
   }

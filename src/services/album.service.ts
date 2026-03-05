@@ -10,6 +10,9 @@ const {
   song,
   User,
   searchPlaylistHistory,
+  favorites,
+  Downloads,
+   History,
 } = db;
 import { IAlbum, ISong } from "../types";
 import { Sequelize, Order } from "sequelize";
@@ -666,11 +669,11 @@ async function getAlbumSongs(
   albumId: number,
   page: number = 1,
   limit: number = 10,
-  user_id?: number, // ✅ optional user_id added
+  user_id?: number
 ) {
   const offset = (page - 1) * limit;
 
-  const albumSongs = await AlbumSong.findAll({
+  const { rows, count } = await AlbumSong.findAndCountAll({
     where: { album_id: albumId },
     limit,
     offset,
@@ -680,35 +683,45 @@ async function getAlbumSongs(
         model: song,
         as: "song",
         attributes: ["song_id", "title", "thumbnail", "audio"],
+        include: [
+          {
+            model: favorites,
+            as: "downloadedBy",
+            attributes: [],
+            required: false,
+            where: user_id ? { user_id } : undefined,
+          },
+          {
+            model: Downloads,
+            as: "favoriteBy",
+            attributes: [],
+            required: false,
+            where: user_id ? { user_id } : undefined,
+          },
+        ],
       },
     ],
   });
 
-  const total = await AlbumSong.count({ where: { album_id: albumId } });
+  const songs = rows.map((item: any) => {
+    const s = item.song;
 
-  // Map songs and add is_favorite if user_id exists
-  const songsWithFavorite = await Promise.all(
-    albumSongs.map(async (s: InstanceType<typeof AlbumSong>) => {
-      const songData = s.toJSON() as any;
-
-      if (user_id && songData.song) {
-        const is_favorite = await song_service.isfavorite(
-          user_id,
-          parseInt(songData.song.song_id)
-        );
-        return { ...songData.song, is_favorite };
-      }
-
-      return songData.song;
-    })
-  );
+    return {
+      song_id: s.song_id,
+      title: s.title,
+      thumbnail: s.thumbnail,
+      audio: s.audio,
+      is_favorite: s.favoriteBy?.length > 0,
+      is_downloaded: s.downloadedBy?.length > 0,
+    };
+  });
 
   return {
-    songs: songsWithFavorite,
-    total,
+    songs,
+    total: count,
     page,
     limit,
-    totalPages: Math.ceil(total / limit),
+    totalPages: Math.ceil(count / limit),
   };
 }
 
