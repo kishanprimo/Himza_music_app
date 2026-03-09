@@ -37,20 +37,22 @@ console.info("user id profile",req.user.user_id)
           ],
         },
         { model: Album, as: "currentAlbum" },
-        {
-          model: SubscribedUsers,
-          as: "subscriptionPlan",
-          required:false,
-          where: {
-            is_active: true,
-          },
-          include: [
-            {
-              model: SunscriptionPlans,
-              as: "plan",
-            },
-          ],
-        },
+      {
+  model: SubscribedUsers,
+  as: "subscriptionPlan",
+  required: false,
+  where: {
+    is_active: true,
+  },
+  include: [
+    {
+      model: SunscriptionPlans,
+      as: "plan",
+    },
+  ],
+  order: [["createdAt", "DESC"]], // latest first
+  limit: 1, // sirf last plan
+},
       ]
     );
   console.info("user @q3234",user)

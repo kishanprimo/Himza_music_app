@@ -20,6 +20,7 @@ import {
   addSongsToPlaylist,
   removeSongsFromPlaylist,
   getMyPlaylists,
+  getPlaylistSongs,
 } from "../controllers/album.controller";
 import z from "zod";
 import { createAlbumSchema } from "../zod/album.validator";
@@ -180,6 +181,19 @@ router.post(
     })
   ),
   getAlbumSongs, // ✅ use the correct controller function
+);
+
+router.post(
+  "/get-playlist-songs",
+  authenticate,
+  validateBody(
+    z.object({
+      playlist_id: z.coerce.number(),
+      page: z.coerce.number().optional(),
+      limit: z.coerce.number().optional(),
+    })
+  ),
+  getPlaylistSongs
 );
 
 export default router;

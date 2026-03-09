@@ -115,12 +115,25 @@ async function getMySongs(req: Request, res: Response) {
     if (!artist)
       return response_service.notFoundResponse(res, "Artist not found.");
     let is_favorite = false;
+    let artist_favorite = false;
+
 
     if (req.user.user_id)
       is_favorite = await singer_service.isfavorite(
         req.user.user_id,
         req.body.artist_id,
       );
+
+      if (req.user.user_id) {
+  const fav = await favoriteArtists.findOne({
+    where: {
+      user_id: req.user.user_id,
+      artist_user_id: req.body.artist_id,
+    },
+  });
+
+  artist_favorite = fav ? true : false;
+}
     
     const songs_count = await singer_service.mySongsCount(
       parseInt(req.body.artist_id),
@@ -145,6 +158,7 @@ async function getMySongs(req: Request, res: Response) {
             songs_count,
             likes_count,
           },
+          artist_favorite,
           is_favorite: req.user.user_id
             ? await song_service.isfavorite(req.user?.user_id, song.song_id)
             : false,
@@ -158,11 +172,27 @@ async function getMySongs(req: Request, res: Response) {
       }),
     );
     if (songs.length > 0) {
-      return response_service.successResponse(
-        res,
-        "Songs fetched successfully.",
-        songs,
-      );
+      // return response_service.successResponse(
+      //   res,
+      //   "Songs fetched successfully.",
+      //   songs,
+      // );
+
+//        return res.status(200).json({
+//   success: true,
+//   message: "Songs fetched successfully.",
+//   artist_favorite,
+//   data: songs,
+// });
+
+return response_service.successResponse(
+  res,
+  "Songs fetched successfully.",
+  {
+    artist_favorite,
+    data: songs
+  }
+);
     } else {
       const singer = await user_service.getUser(
         { user_id: req.body.artist_id, is_singer: true },
@@ -179,11 +209,26 @@ async function getMySongs(req: Request, res: Response) {
       const songs_count = await singer_service.mySongsCount(
         parseInt(req.body.artist_id),
       );
-      return response_service.successResponse(
-        res,
-        "Songs fetched successfully.",
-        [{ singer: { ...singer, is_favorite, songs_count } }],
-      );
+      // return response_service.successResponse(
+      //   res,
+      //   "Songs fetched successfully.",
+      //   [{ singer: { ...singer, is_favorite, songs_count } }],
+      // );
+//     return res.status(200).json({
+//   success: true,
+//   message: "Songs fetched successfully.",
+//   artist_favorite,
+//   data: [{ singer: { ...singer, songs_count } }],
+// });
+
+return response_service.successResponse(
+  res,
+  "Songs fetched successfully.",
+  {
+    artist_favorite,
+    data: [{ singer: { ...singer, songs_count } }]
+  }
+);
     }
   } catch (err: any) {
     logger.error("Error fetching songs:", err);

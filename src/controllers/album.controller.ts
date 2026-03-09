@@ -892,6 +892,28 @@ async function getAlbumSongs(req: Request, res: Response) {
   }
 }
 
+async function getPlaylistSongs(req: Request, res: Response) {
+  try {
+    const { playlist_id, page = 1, limit = 10 } = req.body;
+    const user_id = req.user?.user_id;
+
+    const songs = await album_service.getPlaylistSongs(
+      Number(playlist_id),
+      Number(page),
+      Number(limit),
+      user_id
+    );
+
+    return response_service.successResponse(
+      res,
+      "Playlist songs fetched successfully",
+      songs || { songs: [], total: 0 }
+    );
+  } catch (err: any) {
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 export {
   createAlbum,
   updateAlbum,
@@ -909,5 +931,6 @@ export {
   addSongsToPlaylist,
   removeSongsFromPlaylist,
   getMyPlaylists,
+  getPlaylistSongs,
 };
 

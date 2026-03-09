@@ -887,6 +887,66 @@ async function addSongsToPlaylist(
   }
 }
 
+async function getPlaylistSongs(
+  playlistId: number,
+  page: number = 1,
+  limit: number = 10,
+  user_id?: number
+) {
+  const offset = (page - 1) * limit;
+
+  const { rows, count } = await PlaylistSong.findAndCountAll({
+    where: { playlist_id: playlistId },
+    limit,
+    offset,
+    order: [["playlist_song_id", "DESC"]],
+   include: [
+  {
+    model: song,
+    as: "song",
+    attributes: ["song_id", "title", "thumbnail", "audio"],
+    include: [
+      {
+        model: favorites,
+        as: "downloadedBy",
+        attributes: [],
+        required: false,
+        where: user_id ? { user_id } : undefined,
+      },
+      {
+        model: Downloads,
+        as: "favoriteBy",
+        attributes: [],
+        required: false,
+        where: user_id ? { user_id } : undefined,
+      },
+    ],
+  },
+],
+  });
+
+  const songs = rows.map((item: any) => {
+    const s = item.song;
+
+    return {
+      song_id: s.song_id,
+      title: s.title,
+      thumbnail: s.thumbnail,
+      audio: s.audio,
+      is_favorite: s.favoriteBy?.length > 0,
+      is_downloaded: s.downloadedBy?.length > 0,
+    };
+  });
+
+  return {
+    songs,
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+  };
+}
+
 export default {
   createAlbum,
   addSongsToAlbum,
@@ -911,4 +971,5 @@ export default {
   getPlaylist,
   removeSongFromPlaylist,
   getMyPlaylists,
+  getPlaylistSongs,
 };
