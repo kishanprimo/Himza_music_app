@@ -260,7 +260,19 @@ module.exports = (sequelize: any, DataTypes: any) => {
         type:DataTypes.INTEGER,
         allowNull:true,
         defaultValue:0,
-      }
+      },
+      razor_public_key: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "",
+      },
+
+      razor_secret_key: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "",
+      },
+
     },
     {
       tableName: "config",
