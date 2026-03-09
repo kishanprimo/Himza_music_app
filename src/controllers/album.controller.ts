@@ -275,7 +275,7 @@ let existing_songs =
 if (existing_songs.length > 0)
   return response_service.badRequestResponse(
     res,
-    "You can add only unique songs."
+    `Song is already in the "${playlist.title}".`
   );
 
 const addedSongs = await album_service.addSongsToPlaylist(
