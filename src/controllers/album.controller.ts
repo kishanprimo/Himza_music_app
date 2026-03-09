@@ -13,6 +13,7 @@ const {
   MusicSinger,
   song,
   User,
+  PlaylistSong,
 } = db;
 
 // create album =============================================
@@ -68,6 +69,63 @@ async function createAlbum(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error creating album:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
+async function createPlaylist(req: Request, res: Response) {
+  console.log("create playlist", req.body);
+
+  try {
+    const user = req.user;
+    const is_private = req.body.is_private;
+
+    if (is_private == "true" && !req.user.user_id)
+      return response_service.badRequestResponse(
+        res,
+        "You cannot create private playlists."
+      );
+
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+
+    let songs = req.body.songs;
+
+    let playlist_data;
+
+    if (user.user_id) {
+      playlist_data = {
+        ...req.body,
+        thumbnail: files?.["playlist_thumbnail"]?.[0].path,
+        user_id: req.user.user_id,
+      };
+    } else {
+      playlist_data = {
+        ...req.body,
+        thumbnail: files?.["playlist_thumbnail"]?.[0].path,
+      };
+    }
+
+    const playlist = await album_service.createPlaylist(playlist_data);
+
+    if (!playlist)
+      return response_service.badRequestResponse(
+        res,
+        "Failed to create playlist."
+      );
+
+    if (songs)
+      await album_service.addSongsToPlaylist(songs, playlist.playlist_id);
+
+    return response_service.successResponse(
+      res,
+      "Playlist created successfully.",
+      playlist
+    );
+
+  } catch (err: any) {
+    logger.error("Error creating playlist:", err);
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
@@ -160,6 +218,99 @@ async function addSongsToAlbum(req: Request, res: Response) {
   }
 }
 
+async function addSongsToPlaylist(req: Request, res: Response) {
+  try {
+    let user = req.user;
+    let playlist;
+
+    if (user.user_id) {
+      playlist = await album_service.getPlaylist(
+        {
+          playlist_id: req.body.playlist_id,
+          user_id: req.user.user_id,
+          is_private: true,
+        },
+        [
+          {
+            model: PlaylistSong,
+            as: "songs",
+            include: [
+              {
+                model: song,
+                as: "song",
+                attributes: ["song_id"],
+              },
+            ],
+          },
+        ]
+      );
+    } else {
+      playlist = await album_service.getPlaylist(
+        { playlist_id: req.body.playlist_id, is_private: false },
+        [
+          {
+            model: PlaylistSong,
+            as: "songs",
+            include: [
+              {
+                model: song,
+                as: "song",
+                attributes: ["song_id"],
+              },
+            ],
+          },
+        ]
+      );
+    }
+
+    if (!playlist)
+  return response_service.badRequestResponse(res, "Playlist not found.");
+
+let songs = req.body.songIds || req.body.song_ids;
+
+// check duplicate songs
+let existing_songs =
+  playlist.songs?.filter((s: any) => songs.includes(s.song_id.toString())) || [];
+
+if (existing_songs.length > 0)
+  return response_service.badRequestResponse(
+    res,
+    "You can add only unique songs."
+  );
+
+const addedSongs = await album_service.addSongsToPlaylist(
+  songs,
+  req.body.playlist_id
+);
+
+if (!addedSongs)
+  return response_service.badRequestResponse(
+    res,
+    "Failed to add songs to playlist."
+  );
+
+    return response_service.successResponse(
+      res,
+      "Songs added to playlist successfully.",
+      await album_service.getPlaylist({ playlist_id: req.body.playlist_id }, [
+        {
+          model: PlaylistSong,
+          as: "songs",
+          include: [
+            {
+              model: song,
+              as: "song",
+            },
+          ],
+        },
+      ])
+    );
+  } catch (err: any) {
+    logger.error("Error adding songs to playlist:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 // remove song from album ==================================================
 async function removeSongsFromAlbum(req: Request, res: Response) {
   console.log(req.body);
@@ -209,10 +360,66 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
   }
 }
 
+async function removeSongsFromPlaylist(req: Request, res: Response) {
+  console.log(req.body);
+
+  try {
+    let user = req.user;
+    let playlist;
+
+    if (user.user_id) {
+      playlist = await album_service.getPlaylist({
+        playlist_id: req.body.playlist_id,
+        user_id: req.user.user_id,
+      });
+    } else {
+      playlist = await album_service.getPlaylist({
+        playlist_id: req.body.playlist_id,
+      });
+    }
+
+    if (!playlist)
+      return response_service.badRequestResponse(res, "Playlist not found.");
+
+    let songs = req.body.songIds || req.body.song_ids;
+
+    songs = await album_service.removeSongFromPlaylist(
+      songs,
+      req.body.playlist_id
+    );
+
+    if (songs && songs[0] == 0)
+      return response_service.badRequestResponse(
+        res,
+        "Failed to remove songs from playlist."
+      );
+
+    return response_service.successResponse(
+      res,
+      "Songs removed from playlist successfully.",
+      await album_service.getPlaylist({ playlist_id: req.body.playlist_id }, [
+        {
+          model: PlaylistSong,
+          as: "songs",
+          include: [
+            {
+              model: song,
+              as: "song",
+            },
+          ],
+        },
+      ])
+    );
+  } catch (err: any) {
+    logger.error("Error removing songs from playlist:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 // search in playlist ================================================
 export async function searchPlaylist(req: Request, res: Response) {
   console.log("Search Playlist", req.body);
-  
+
   try {
     const userId = req.user?.user_id;
 
@@ -241,12 +448,10 @@ export async function searchPlaylist(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error searching playlist:", err);
-    return response_service.internalServerErrorResponse(
-      res,
-      err.message
-    );
+    return response_service.internalServerErrorResponse(res, err.message);
   }
 }
+
 export async function addPlaylistSearchHistory(
   req: Request,
   res: Response
@@ -551,6 +756,30 @@ async function getMyAlbums(req: Request, res: Response) {
   }
 }
 
+async function getMyPlaylists(req: Request, res: Response) {
+  try {
+    const user = req.user;
+
+    const playlists = await album_service.getMyPlaylists(
+      user.user_id,
+      req.body.page,
+      req.body.limit
+    );
+
+    if (!playlists)
+      return response_service.notFoundResponse(res, "Playlists not found.");
+
+    return response_service.successResponse(
+      res,
+      "Playlists fetched successfully.",
+      playlists
+    );
+  } catch (err: any) {
+    logger.error("Error fetching playlists:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 
 
 
@@ -676,5 +905,9 @@ export {
   searchFavoriteAlbums,
   deleteAlbum,
   getAlbumSongs,
+  createPlaylist,
+  addSongsToPlaylist,
+  removeSongsFromPlaylist,
+  getMyPlaylists,
 };
 

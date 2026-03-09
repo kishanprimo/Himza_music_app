@@ -13,8 +13,10 @@ const {
   favorites,
   Downloads,
    History,
+   Playlist,
+   PlaylistSong,
 } = db;
-import { IAlbum, ISong } from "../types";
+import { IAlbum, ISong, IPlaylist } from "../types";
 import { Sequelize, Order } from "sequelize";
 import { song_service } from ".";
 import { Op } from "sequelize";
@@ -78,6 +80,26 @@ async function removeSongFromAlbum(
     throw err;
   }
 }
+
+async function removeSongFromPlaylist(
+  songIds: string[],
+  playlistId: string
+): Promise<number[] | null> {
+  try {
+    const playlistSongs = await Promise.all(
+      songIds.map(
+        async (song_id: string) =>
+          await PlaylistSong.destroy({
+            where: { playlist_id: playlistId, song_id: song_id },
+          })
+      )
+    );
+
+    return playlistSongs;
+  } catch (err) {
+    throw err;
+  }
+}
 // update album ===============================================
 async function updateAlbum(
   albumPayload: Partial<IAlbum>,
@@ -107,6 +129,24 @@ async function getAlbum(
     });
     if (!album) return null;
     return album.toJSON();
+  } catch (err) {
+    throw err;
+  }
+}
+
+async function getPlaylist(
+  where: Partial<IPlaylist>,
+  include?: any,
+): Promise<IPlaylist | null> {
+  try {
+    const playlist = await Playlist.findOne({
+      where: where,
+      include,
+    });
+
+    if (!playlist) return null;
+
+    return playlist.toJSON();
   } catch (err) {
     throw err;
   }
@@ -329,6 +369,87 @@ async function getMyAlbums(
     throw err;
   }
 }
+
+async function getMyPlaylists(
+  userId: number,
+  page: number = 1,
+  limit: number = 10
+): Promise<any> {
+  try {
+    const offset = (page - 1) * limit;
+
+    const { count: total, rows } = await Playlist.findAndCountAll({
+      where: { user_id: userId },
+      attributes: [
+        "playlist_id",
+        "title",
+        "thumbnail",
+        "description",
+        "is_private",
+        "createdAt",
+        "updatedAt",
+      ],
+      limit,
+      offset,
+      order: [["playlist_id", "DESC"]],
+      include: [
+        {
+          model: PlaylistSong,
+          as: "songs",
+          attributes: ["playlist_song_id"],
+          separate: true,
+          order: [["playlist_song_id", "DESC"]],
+          required: false,
+          include: [
+            {
+              model: song,
+              as: "song",
+              attributes: ["song_id", "thumbnail", "title", "audio"],
+              include: [
+                {
+                  model: MusicSinger,
+                  as: "artists",
+                  attributes: ["music_singer_id", "user_id"],
+                  include: [
+                    {
+                      model: User,
+                      as: "singer",
+                      attributes: ["user_id", "full_name", "profile_pic"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const playlists = rows.map((playlist: any) => {
+      const rawPlaylist = playlist.get({ plain: true });
+      const songsCount = rawPlaylist.songs?.length || 0;
+
+      delete rawPlaylist.songs;
+
+      return {
+        ...rawPlaylist,
+        songs_count: songsCount,
+      };
+    });
+
+    return {
+      playlists,
+      pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_records: total,
+        total_pages: Math.ceil(total / limit),
+      },
+    };
+  } catch (err) {
+    throw err;
+  }
+}
 async function addToPlaylistSearchHistory(
   userId: number,
   albumId: number
@@ -449,11 +570,12 @@ async function getPlaylistSearchHistory(
     throw err;
   }
 }
+
 async function searchPlaylist(
   userId: number,
   search: string,
   page: number = 1,
-  limit: number = 10,
+  limit: number = 10
 ) {
   try {
     const currentPage = Number(page) || 1;
@@ -462,8 +584,7 @@ async function searchPlaylist(
 
     if (!search?.trim()) {
       return {
-        albums: [],
-
+        playlists: [],
         total: 0,
         page: currentPage,
         limit: perPage,
@@ -471,7 +592,7 @@ async function searchPlaylist(
       };
     }
 
-    const { count, rows } = await Album.findAndCountAll({
+    const { count, rows } = await Playlist.findAndCountAll({
       where: {
         user_id: userId,
         [Op.and]: [
@@ -482,14 +603,14 @@ async function searchPlaylist(
       },
       limit: perPage,
       offset,
-      order: [["album_id", "DESC"]],
+      order: [["playlist_id", "DESC"]],
       include: [
         {
-          model: AlbumSong,
+          model: PlaylistSong,
           as: "songs",
-          attributes: ["album_song_id"],
+          attributes: ["playlist_song_id"],
           separate: true,
-          order: [["album_song_id", "DESC"]],
+          order: [["playlist_song_id", "DESC"]],
           required: false,
           include: [
             {
@@ -516,17 +637,17 @@ async function searchPlaylist(
       ],
     });
 
-    const albums = rows.map((album: any) => {
-      const rawAlbum = album.get({ plain: true });
+    const playlists = rows.map((playlist: any) => {
+      const rawPlaylist = playlist.get({ plain: true });
 
       return {
-        ...rawAlbum,
-        songs_count: rawAlbum.songs?.length || 0,
+        ...rawPlaylist,
+        songs_count: rawPlaylist.songs?.length || 0,
       };
     });
 
     return {
-      albums,
+      playlists,
       pagination: {
         current_page: currentPage,
         records_per_page: perPage,
@@ -725,6 +846,47 @@ async function getAlbumSongs(
   };
 }
 
+async function createPlaylist(
+  playlistPayload: Partial<IPlaylist>,
+): Promise<IPlaylist | null> {
+  try {
+    const playlist = await Playlist.create(playlistPayload);
+    return playlist.toJSON();
+  } catch (err) {
+    throw err;
+  }
+}
+
+async function addSongsToPlaylist(
+  songIds: string[],
+  playlistId: string,
+): Promise<ISong[] | null> {
+  try {
+
+    const ids: string[] = (
+      await Promise.all(
+        songIds.map(async (song_id: string) => {
+          const data: any = await song.findOne({ where: { song_id: song_id } });
+          return data ? data.song_id : null;
+        }),
+      )
+    ).filter((id): id is string => id !== null);
+
+    if (ids.length <= 0) return null;
+
+    const playlistSongs = await Promise.all(
+      ids.map((song_id: string) =>
+        PlaylistSong.create({ playlist_id: playlistId, song_id: song_id }),
+      ),
+    );
+
+    return playlistSongs.map((s) => s.toJSON());
+
+  } catch (err) {
+    throw err;
+  }
+}
+
 export default {
   createAlbum,
   addSongsToAlbum,
@@ -744,4 +906,9 @@ export default {
   searchFavoriteAlbums,
   deleteAlbum,
   getAlbumSongs,
+  createPlaylist,
+  addSongsToPlaylist,
+  getPlaylist,
+  removeSongFromPlaylist,
+  getMyPlaylists,
 };

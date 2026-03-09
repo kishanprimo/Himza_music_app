@@ -227,3 +227,16 @@ export interface Episodes {
   createdAt?:Date;
   updatedAt?:Date;
 }
+
+export interface IPlaylist {
+  playlist_id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  genre_id: string;
+  is_private: boolean;
+  user_id: string;
+  songs?: ISong[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}

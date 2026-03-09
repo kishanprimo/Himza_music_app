@@ -16,6 +16,10 @@ import {
   searchPlaylist,
   getAlbumSongs,
   addSongsToAlbum, // ✅ proper import
+  createPlaylist,
+  addSongsToPlaylist,
+  removeSongsFromPlaylist,
+  getMyPlaylists,
 } from "../controllers/album.controller";
 import z from "zod";
 import { createAlbumSchema } from "../zod/album.validator";
@@ -46,7 +50,7 @@ router.post(
   "/create-playlist",
   authenticate,
   validateBody(createAlbumSchema),
-  createAlbum,
+  createPlaylist,
 );
 
 // add songs to playlist
@@ -55,11 +59,11 @@ router.post(
   authenticate,
   validateBody(
     z.object({
-      album_id: z.string().min(1, "album_id is required."),
-      song_ids: z.array(z.string()).min(1, "song_id is required."),
-    }),
+      playlist_id: z.string().min(1, "playlist_id is required."),
+      song_ids: z.array(z.string()).min(1, "song_ids is required."),
+    })
   ),
-  addSongsToAlbum,
+  addSongsToPlaylist
 );
 
 // remove songs from playlist
@@ -68,11 +72,11 @@ router.post(
   authenticate,
   validateBody(
     z.object({
-      album_id: z.string().min(1, "album_id is required."),
+      playlist_id: z.string().min(1, "playlist_id is required."),
       song_ids: z.array(z.string()).min(1, "song_id is required."),
-    }),
+    })
   ),
-  removeSongsFromAlbum,
+  removeSongsFromPlaylist
 );
 
 // search playlist
@@ -125,9 +129,9 @@ router.post(
     z.object({
       page: z.coerce.number().optional(),
       limit: z.coerce.number().optional(),
-    }),
+    })
   ),
-  getMyAlbums,
+  getMyPlaylists
 );
 
 // get favorite albums
