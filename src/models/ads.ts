@@ -44,7 +44,7 @@ module.exports = (sequelize: any, DataTypes: any) => {
         allowNull: true,
       },
       placement: {
-        type: DataTypes.ENUM("Home", "Album", "Genre", "Song"),
+        type: DataTypes.ENUM("Home", "Album", "Genre", "Song", "Search"),
         allowNull: true,
       },
       // duration_in_sec: { type: DataTypes.INTEGER, allowNull: true },
