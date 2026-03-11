@@ -21,6 +21,7 @@ import {
   removeSongsFromPlaylist,
   getMyPlaylists,
   getPlaylistSongs,
+  deletePlaylist,
 } from "../controllers/album.controller";
 import z from "zod";
 import { createAlbumSchema } from "../zod/album.validator";
@@ -167,6 +168,15 @@ router.post(
     z.object({ album_id: z.string().min(1, "album_id is required.") }),
   ),
   deleteAlbum,
+);
+
+router.post(
+  "/delete-playlist",
+  authenticate,
+  validateBody(
+    z.object({ playlist_id: z.string().min(1, "playlist_id is required.") }),
+  ),
+  deletePlaylist,
 );
 
 // get album songs

@@ -880,6 +880,41 @@ async function deleteAlbum(req: Request, res: Response) {
   }
 }
 
+async function deletePlaylist(req: Request, res: Response) {
+  try {
+    const playlistId = req.body.playlist_id;
+
+    const playlist = await album_service.getPlaylist({
+      playlist_id: playlistId,
+    });
+
+    if (!playlist)
+      return response_service.notFoundResponse(res, "Playlist not found.");
+
+    if (playlist.user_id != req.user.user_id && !req.user.admin_id)
+      return response_service.badRequestResponse(
+        res,
+        "You are not the owner of this playlist."
+      );
+
+    const result = await album_service.deletePlaylist(playlistId);
+
+    if (!result)
+      return response_service.badRequestResponse(
+        res,
+        "Failed to delete playlist."
+      );
+
+    return response_service.successResponse(
+      res,
+      "Playlist deleted successfully."
+    );
+  } catch (err: any) {
+    logger.error("Error deleting playlist:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 async function getAlbumSongs(req: Request, res: Response) {
   try {
     const { album_id, page = 1, limit = 10 } = req.body;
@@ -942,5 +977,6 @@ export {
   removeSongsFromPlaylist,
   getMyPlaylists,
   getPlaylistSongs,
+  deletePlaylist,
 };
 

@@ -152,6 +152,20 @@ async function getPlaylist(
   }
 }
 
+async function deletePlaylist(playlistId: number): Promise<number> {
+  try {
+    const result = await Playlist.destroy({ where: { playlist_id: playlistId } });
+
+    if (result === 0) return 0;
+
+    await PlaylistSong.destroy({ where: { playlist_id: playlistId } });
+
+    return 1;
+  } catch (err) {
+    throw err;
+  }
+}
+
 // get all albums =============================================================
 async function getAllAlbums(
   page: number = 1,
@@ -983,4 +997,5 @@ export default {
   removeSongFromPlaylist,
   getMyPlaylists,
   getPlaylistSongs,
+  deletePlaylist,
 };
