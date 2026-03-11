@@ -794,6 +794,16 @@ async function getAlbumSongs(
 ) {
   const offset = (page - 1) * limit;
 
+    let album_favorite = false;
+
+  if (user_id) {
+    const fav = await favoriteAlbums.findOne({
+      where: { user_id: user_id, album_id: albumId },
+    });
+
+    album_favorite = !!fav;
+  }
+
   const { rows, count } = await AlbumSong.findAndCountAll({
     where: { album_id: albumId },
     limit,
@@ -838,6 +848,7 @@ async function getAlbumSongs(
   });
 
   return {
+    album_favorite, 
     songs,
     total: count,
     page,

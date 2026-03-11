@@ -134,6 +134,12 @@ async function createPlaylist(req: Request, res: Response) {
 async function addSongsToAlbum(req: Request, res: Response) {
   try {
     let user = req.user;
+
+    console.log(" my res values", req.body)
+
+    console.log("album_id:", req.body.album_id);
+console.log("user_id:", req.user?.user_id);
+
     let album;
     if (user.user_id) {
       album = await album_service.getAlbum(
@@ -174,6 +180,10 @@ async function addSongsToAlbum(req: Request, res: Response) {
         ]
       );
     }
+
+
+    console.log("albumalbumalbumalbum" , album)
+
     if (!album)
       return response_service.badRequestResponse(res, "Album not found.");
     let existing_songs = album.songs?.map((song: any) =>

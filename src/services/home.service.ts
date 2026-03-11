@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites, favoriteArtists } = db;
+const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites, favoriteArtists, favoriteAlbums} = db;
 import { IHomeBlocks, ISong } from "../types";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { genre_category_service, user_service } from ".";
@@ -240,18 +240,41 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
+      // const albums = await Promise.all(
+      //   paginatedIds.map((id: number) => Album.findByPk(id))
+      // );
+      // data.push(
+      //   ...albums.map((album: any) => ({
+      //     album_id: album?.album_id,
+      //     thumbnail: album?.thumbnail,
+      //     title: album?.title,
+      //     subtitle: album?.subtitle,
+      //     description: album?.description,
+      //   }))
+      // );
+
       const albums = await Promise.all(
-        paginatedIds.map((id: number) => Album.findByPk(id))
-      );
-      data.push(
-        ...albums.map((album: any) => ({
-          album_id: album?.album_id,
-          thumbnail: album?.thumbnail,
-          title: album?.title,
-          subtitle: album?.subtitle,
-          description: album?.description,
-        }))
-      );
+  paginatedIds.map(async (id: number) => {
+    const album: any = await Album.findByPk(id);
+
+    const is_favorite = await favoriteAlbums.findOne({
+      where: { user_id: userId, album_id: id },
+    });
+
+    if (!album) return null;
+
+    return {
+      album_id: album?.album_id,
+      is_favorite: !!is_favorite, // ⭐ ye new field
+      thumbnail: album?.thumbnail,
+      title: album?.title,
+      subtitle: album?.subtitle,
+      description: album?.description,
+    };
+  })
+);
+
+data.push(...albums.filter(Boolean));
     }
     // song block ===========================================
     if (block.type === "song" || (isMix && limits["song"])) {
