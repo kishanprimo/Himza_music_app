@@ -96,7 +96,7 @@ async function setDownloaded(req: Request, res: Response) {
     const isDownloaded = await song_service.setDownloaded(user.user_id, songId);
     return response_service.successResponse(
       res,
-      `Song marked as downloaded: ${isDownloaded}.`,
+      `Song marked as downloaded: true.`,
     );
   } catch (err: any) {
     logger.error("Error setting downloaded:", err);
