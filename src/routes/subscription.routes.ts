@@ -19,7 +19,7 @@ router.post(
   validateBody(
     z.object({
       plan_id: z.string().min(1, "plan_id is required."),
-      payment_method: z.enum(["stripe", "paypal", "razorpay"])
+      payment_method: z.enum(["stripe", "paypal", "razorpay", "apple_iap"])
     })
   ),
   subscribe
@@ -30,7 +30,7 @@ router.post(
     z.object({
       plan_id: z.string().min(1, "plan_id is required."),
       payment_status: z.enum(["completed", "failed", "pending"]),
-      payment_method: z.enum(["stripe", "paypal", "razorpay"])
+      payment_method: z.enum(["stripe", "paypal", "razorpay", "apple_iap"])
     })
   ),
   afterPayment
