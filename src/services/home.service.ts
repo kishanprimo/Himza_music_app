@@ -257,15 +257,17 @@ async function getBlock(
   paginatedIds.map(async (id: number) => {
     const album: any = await Album.findByPk(id);
 
-    const is_favorite = await favoriteAlbums.findOne({
+    const isFavorite = userId
+  ? !!(await favoriteAlbums.findOne({
       where: { user_id: userId, album_id: id },
-    });
+    }))
+  : false;
 
     if (!album) return null;
 
     return {
       album_id: album?.album_id,
-      is_favorite: !!is_favorite, // ⭐ ye new field
+      is_favorite: !!isFavorite, // ⭐ ye new field
       thumbnail: album?.thumbnail,
       title: album?.title,
       subtitle: album?.subtitle,

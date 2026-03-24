@@ -533,12 +533,16 @@ async function getAllSongs(
     const totalPages = Math.ceil(count / limit);
     const data = await Promise.all(
       rows.map(async (song: any) => {
-        const is_favorite = await favorites.findOne({
-          where: { user_id: userId, song_id: song.get("song_id") },
-        });
-        const is_downloaded = await Downloads.findOne({
-          where: { user_id: userId, song_id: song.get("song_id") },
-        });
+       const is_favorite = userId
+  ? !!(await favorites.findOne({
+      where: { user_id: userId, song_id: song.get("song_id") },
+    }))
+  : false;
+      const is_downloaded = userId
+  ? !!(await Downloads.findOne({
+      where: { user_id: userId, song_id: song.get("song_id") },
+    }))
+  : false;
         const download_counts = await Downloads.count({
           where: { song_id: song.get("song_id") },
         });

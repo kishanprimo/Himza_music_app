@@ -18,6 +18,7 @@ import { uploadMusicSchema, updateMusicSchema } from "../zod/song.validator";
 import { validateBody } from "../middleware/zod.middleware";
 import { paginationSchema } from "../zod/pagenation.validator";
 import z from "zod";
+import { optionalAuth } from "../middleware/optionalAuth.middleware";
 const router = Router();
 
 router.post(
@@ -28,7 +29,7 @@ router.post(
 
 router.post(
   "/all-songs",
-  authenticate,
+  optionalAuth,
   validateBody(
     z.object({
       album_id: z.string().optional(),

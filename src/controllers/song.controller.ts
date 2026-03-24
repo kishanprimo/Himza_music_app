@@ -528,7 +528,7 @@ async function getAllSongs(req: Request, res: Response) {
       req.body.album_id,
       parseInt(req.body.page || 1),
       parseInt(req.body.limit || 10),
-      req.user?.user_id,
+      req.user?.user_id || 0,
       req.body.for_admin,
       req.body.search,
     );

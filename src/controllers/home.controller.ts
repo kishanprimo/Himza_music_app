@@ -110,12 +110,13 @@ async function getAllBlocks(req: Request, res: Response) {
 
 async function getBlockById(req: Request, res: Response) {
   try {
+    const userId = req.user?.user_id || 0;
     const block = await home_service.getBlock(
       parseInt(req.body.block_id),
       req.body.limits ?? {},
       parseInt(req.body.page) || req.body.page,
       parseInt(req.body.limit) || req.body.limit,
-      req.user.user_id
+     userId
     );
     if (!block) {
       return response_service.notFoundResponse(res, "Block not found.");

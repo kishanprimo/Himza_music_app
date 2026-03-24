@@ -4,12 +4,13 @@ import { validateBody } from "../middleware/zod.middleware";
 import { paginationSchema } from "../zod/pagenation.validator";
 import { z } from "zod";
 import { authenticate } from "../middleware/auth.middleware";
+import { optionalAuth } from "../middleware/optionalAuth.middleware";
 
 const router = Router();
 
 router.get('/all-blocks', getAllBlocks);
 
-router.post('',authenticate, validateBody(
+router.post('',optionalAuth, validateBody(
     z.object({
         block_id: z.string().min(1, 'block_id is required.'),
         page: z.string().optional(),
