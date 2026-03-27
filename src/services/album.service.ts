@@ -105,13 +105,14 @@ async function updateAlbum(
   albumPayload: Partial<IAlbum>,
   where: Partial<IAlbum>,
 ): Promise<IAlbum | null> {
-  console.log("updateAlbum", albumPayload);
   try {
-    const album = await Album.update(albumPayload, {
-      where: where,
-    });
-    if (album[1].length <= 0) return null;
-    return album[1][0].toJSON();
+    const album = await Album.findOne({ where });
+
+    if (!album) return null;
+
+    await album.update(albumPayload);
+
+    return album.toJSON();
   } catch (err) {
     throw err;
   }
@@ -812,7 +813,7 @@ async function getAlbumWithSongs(albumId: number) {
             {
               model: song,
               as: "song",
-              attributes: ["song_id", "title", "thumbnail", "audio"],
+              // attributes: ["song_id", "title", "thumbnail", "audio"],
             },
           ],
         },

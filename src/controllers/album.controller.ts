@@ -578,7 +578,7 @@ async function updateAlbum(req: Request, res: Response) {
         res,
         "You are not the owner of this album."
       );
-    if (album.is_private && req.user.user_id != album.user_id)
+    if (album.is_private && req.user.user_id)
       return response_service.badRequestResponse(res, "");
     const files = req.files as
       | { [fieldname: string]: Express.Multer.File[] }
