@@ -726,6 +726,26 @@ async function getAllAlbums(req: Request, res: Response) {
   }
 }
 
+async function getAlbumDetails(req: Request, res: Response) {
+  try {
+    const album_id = parseInt(req.body.album_id);
+
+    const album = await album_service.getAlbumWithSongs(album_id);
+
+    if (!album)
+      return response_service.notFoundResponse(res, "Album not found.");
+
+    return response_service.successResponse(
+      res,
+      "Album details retrieved successfully.",
+      album
+    );
+  } catch (err: any) {
+    logger.error("Error getting album details:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 // set favorites =========================================
 async function setfavorite(req: Request, res: Response) {
   try {
@@ -978,5 +998,6 @@ export {
   getMyPlaylists,
   getPlaylistSongs,
   deletePlaylist,
+  getAlbumDetails,
 };
 

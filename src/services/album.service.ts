@@ -793,8 +793,43 @@ async function deleteAlbum(albumId: number): Promise<number> {
   try {
     const result = await Album.destroy({ where: { album_id: albumId } });
     if (result === 0) return 0;
-    AlbumSongs.destroy({ where: { album_id: albumId } });
+      await AlbumSong.destroy({ where: { album_id: albumId } });
     return 1;
+  } catch (err) {
+    throw err;
+  }
+}
+
+async function getAlbumWithSongs(albumId: number) {
+  try {
+    const album = await Album.findOne({
+      where: { album_id: albumId },
+      include: [
+        {
+          model: AlbumSong,
+          as: "songs",
+          include: [
+            {
+              model: song,
+              as: "song",
+              attributes: ["song_id", "title", "thumbnail", "audio"],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!album) return null;
+
+    const data = album.toJSON();
+
+    // ✅ Clean songs array
+    const songs = data.songs.map((item: any) => item.song);
+
+    return {
+      ...data,
+      songs,
+    };
   } catch (err) {
     throw err;
   }
@@ -998,4 +1033,5 @@ export default {
   getMyPlaylists,
   getPlaylistSongs,
   deletePlaylist,
+  getAlbumWithSongs,
 };

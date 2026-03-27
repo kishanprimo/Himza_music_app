@@ -4,7 +4,7 @@ import db from "../models";
 const { User } = db;
 import { IUser } from "../types";
 import removeExtraFields from "./common/removeExtraFields.service";
-const { SubscribedUsers, SunscriptionPlans } = db;
+const { SubscribedUsers, SunscriptionPlans, MusicSinger, song } = db;
 
 async function getUser(
   data: Partial<IUser>,
@@ -120,10 +120,52 @@ async function getUserSubscriptions(
   }
 }
 
+async function getArtist(artist_id: string) {
+  try {
+    // 1️⃣ Artist check
+    const artist = await User.findOne({
+      where: {
+        user_id: artist_id,
+        is_deleted: false,
+        is_singer: true,
+      },
+      attributes: { exclude: ["password", "otp"] },
+    });
+
+    if (!artist) return null;
+
+    // 2️⃣ Songs fetch via music_singer
+    const songs = await MusicSinger.findAll({
+      where: {
+        user_id: artist_id,
+      },
+      include: [
+        {
+          model: song,
+          as: "song", // relation name check kar lena
+        },
+      ],
+    });
+
+    // 3️⃣ Clean response
+    const songList = songs.map((item: any) => item.song);
+
+    // 4️⃣ Final response
+    return {
+      artist,
+      songs: songList,
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
 export default {
   getUser,
   createUser,
   updateUser,
   deleteUser,
   getUserSubscriptions,
+  getArtist,
+  
 };

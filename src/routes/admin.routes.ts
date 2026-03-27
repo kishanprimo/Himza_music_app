@@ -47,6 +47,7 @@ import {
   deleteArtist,
   getArtists,
   updateArtist,
+  getArtist,
 } from "../controllers/artist.auth.controller";
 import { updateUserSchema } from "../zod/user.validator";
 import { SigninSchema } from "../zod/auth.validator";
@@ -72,6 +73,7 @@ import {
   getAllAlbums,
   removeSongsFromAlbum,
   updateAlbum,
+  getAlbumDetails,
 } from "../controllers/album.controller";
 import {
   addSongsToMovie,
@@ -235,6 +237,14 @@ router.post(
   deleteArtist
 );
 
+router.post(
+  "/artist-profile",
+  validateBody(
+    z.object({ artist_id: z.string().min(1, "artist_id is required.") })
+  ),
+  getArtist
+);;
+
 router.post("/create-genre", validateBody(CreateGenreSchema), createGenre);
 router.post(
   "/get-all-genre",
@@ -278,6 +288,14 @@ router.post(
   removeSongsFromAlbum
 );
 router.post("/get-all-albums", getAllAlbums);
+
+router.post(
+  "/get-album-details",
+  validateBody(
+    z.object({ album_id: z.string().min(1, "album_id is required.") })
+  ),
+  getAlbumDetails
+);
 
 router.post("/create-movie", validateBody(createMovieSchema), createMovie);
 router.post("/update-movie", validateBody(updateMovieSchema), updateMovie);

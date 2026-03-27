@@ -11,7 +11,8 @@ import { config } from "../config";
 import fs from "fs";
 import db from "../models";
 
-const { Genre, singerGenre } = db;
+const { Genre, singerGenre,  SubscribedUsers,
+  SunscriptionPlans } = db;
 
 async function createArtist(req: Request, res: Response) {
   try {
@@ -147,4 +148,24 @@ async function getArtists(req: Request, res: Response) {
   }
 }
 
-export { createArtist, updateArtist, deleteArtist, getArtists };
+async function getArtist(req: Request, res: Response) {
+  try {
+    const artist_id = req.body.artist_id;
+
+    const artist = await user_service.getArtist(artist_id);
+
+    if (!artist)
+      return response_service.notFoundResponse(res, "Artist not found.");
+
+    return response_service.successResponse(
+      res,
+      "Artist with songs retrieved successfully.",
+      artist
+    );
+  } catch (error: any) {
+    logger.error("Error getting artist songs:", error);
+    return response_service.internalServerErrorResponse(res, error.message);
+  }
+}
+
+export { createArtist, updateArtist, deleteArtist, getArtists, getArtist };
