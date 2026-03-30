@@ -327,9 +327,275 @@ async function dashboardCountCards(
   }
 }
 
+// ==================== NEW DASHBOARD STATISTICS METHODS ====================
+
+/**
+ * Get all platform statistics for dashboard
+ * @returns Complete dashboard statistics object
+ */
+export async function getPlatformStatistics() {
+  try {
+    const [
+      totalUsers,
+      totalSongs,
+      totalAlbums,
+      userVsLastMonth,
+      monthwiseData,
+      loginBreakdown,
+      totalEarnings,
+    ] = await Promise.all([
+      getTotalUsers(),
+      getTotalSongs(),
+      getTotalAlbums(),
+      getUsersVsLastMonth(),
+      getMonthwiseUserData(),
+      getLoginMethodBreakdown(),
+      getTotalEarnings(),
+    ]);
+
+    return {
+      total_users: totalUsers,
+      users_vs_last_month: userVsLastMonth,
+      total_songs: totalSongs,
+      total_albums: totalAlbums,
+      total_earnings: totalEarnings,
+      user_monthwise: monthwiseData,
+      login_method_breakdown: loginBreakdown,
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get total active users count
+ */
+async function getTotalUsers(): Promise<number> {
+  try {
+    const count = await User.count({
+      where: { is_deleted: false },
+    });
+    return count;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get total songs count
+ */
+async function getTotalSongs(): Promise<number> {
+  try {
+    const count = await Song.count();
+    return count;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get total albums count
+ */
+async function getTotalAlbums(): Promise<number> {
+  try {
+    const count = await Album.count({
+      where: { is_deleted: false },
+    });
+    return count;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get total earnings from subscriptions
+ */
+async function getTotalEarnings(): Promise<number> {
+  try {
+    const result = await SubscribedUsers.findOne({
+      attributes: [
+        [fn("SUM", col("amount")), "total"],
+      ],
+      where: {
+        payment_status: "completed",
+      },
+      raw: true,
+    });
+
+    return result?.total ? parseFloat(result.total) : 0;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Compare current month users with last month users
+ * @returns Object with current_month, last_month, difference, and trend
+ */
+async function getUsersVsLastMonth(): Promise<any> {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const currentMonthCount = await User.count({
+      where: {
+        is_deleted: false,
+        createdAt: {
+          [Op.between]: [currentMonthStart, currentMonthEnd],
+        },
+      },
+    });
+
+    const lastMonthCount = await User.count({
+      where: {
+        is_deleted: false,
+        createdAt: {
+          [Op.between]: [lastMonthStart, lastMonthEnd],
+        },
+      },
+    });
+
+    const difference = currentMonthCount - lastMonthCount;
+    const trend =
+      difference > 0 ? "increase" : difference < 0 ? "decrease" : "same";
+
+    return {
+      current_month: currentMonthCount,
+      last_month: lastMonthCount,
+      difference: Math.abs(difference),
+      trend,
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get month-wise user signup data for all 12 months of current year
+ * @returns Object with month names as keys and user counts as values
+ */
+async function getMonthwiseUserData(): Promise<any> {
+  try {
+    const currentYear = new Date().getFullYear();
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    // Initialize all months with 0
+    const monthData: any = {};
+    monthNames.forEach((month) => {
+      monthData[month] = 0;
+    });
+
+    // Get data from database
+    const rawData = await User.findAll({
+      attributes: [
+        [fn("MONTH", col("createdAt")), "month"],
+        [fn("COUNT", col("user_id")), "count"],
+      ],
+      where: {
+        is_deleted: false,
+        createdAt: {
+          [Op.gte]: new Date(`${currentYear}-01-01`),
+          [Op.lt]: new Date(`${currentYear + 1}-01-01`),
+        },
+      },
+      group: [fn("MONTH", col("createdAt"))],
+      raw: true,
+    });
+
+    // Map data to month names
+    rawData.forEach((row: any) => {
+      const monthIndex = parseInt(row.month) - 1;
+      if (monthIndex >= 0 && monthIndex < 12) {
+        monthData[monthNames[monthIndex]] = parseInt(row.count);
+      }
+    });
+
+    return monthData;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get login method breakdown with percentages
+ * @returns Object with login methods and their counts and percentages
+ */
+async function getLoginMethodBreakdown(): Promise<any> {
+  try {
+    const totalUsers = await User.count({
+      where: { is_deleted: false },
+    });
+
+    if (totalUsers === 0) {
+      return {
+        email: { count: 0, percentage: 0 },
+        mobile: { count: 0, percentage: 0 },
+        google: { count: 0, percentage: 0 },
+        apple: { count: 0, percentage: 0 },
+      };
+    }
+
+    const loginData = await User.findAll({
+      attributes: [
+        "login_type",
+        [fn("COUNT", col("user_id")), "count"],
+      ],
+      where: { is_deleted: false },
+      group: ["login_type"],
+      raw: true,
+    });
+
+    const breakdown: any = {
+      email: { count: 0, percentage: 0 },
+      mobile: { count: 0, percentage: 0 },
+      google: { count: 0, percentage: 0 },
+      apple: { count: 0, percentage: 0 },
+    };
+
+    loginData.forEach((row: any) => {
+      const loginType = row.login_type || "email";
+      const count = parseInt(row.count);
+      const percentage = parseFloat(((count / totalUsers) * 100).toFixed(2));
+
+      if (breakdown[loginType]) {
+        breakdown[loginType] = { count, percentage };
+      }
+    });
+
+    return breakdown;
+  } catch (err) {
+    throw err;
+  }
+}
+
 export default {
   getAllUsersList,
   count,
   usersByLogin,
   dashboardCountCards,
+  getPlatformStatistics,
+  getTotalUsers,
+  getTotalSongs,
+  getTotalAlbums,
+  getTotalEarnings,
+  getUsersVsLastMonth,
+  getMonthwiseUserData,
+  getLoginMethodBreakdown,
 };

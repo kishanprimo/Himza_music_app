@@ -240,3 +240,38 @@ export interface IPlaylist {
   createdAt?: Date;
   updatedAt?: Date;
 }
+// Dashboard Statistics Types =====================================================
+export interface ILoginMethodBreakdown {
+  [key: string]: {
+    count: number;
+    percentage: number;
+  };
+}
+
+export interface IUserMonthwise {
+  [key: string]: number;
+}
+
+export interface IUsersVsLastMonth {
+  current_month: number;
+  last_month: number;
+  difference: number;
+  trend: "increase" | "decrease" | "same";
+}
+
+export interface IDashboardStatistics {
+  total_users: number;
+  users_vs_last_month: IUsersVsLastMonth;
+  total_songs: number;
+  total_albums: number;
+  total_earnings: number;
+  user_monthwise: IUserMonthwise;
+  login_method_breakdown: ILoginMethodBreakdown;
+}
+
+export interface IDashboardResponse {
+  response_code: number;
+  status: "success" | "error";
+  message: string;
+  data: IDashboardStatistics;
+}

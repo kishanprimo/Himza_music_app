@@ -20,6 +20,7 @@ import {
   getUser,
   updateUserAdmin,
   usersByLogin,
+  getPlatformStatistics,
 } from "../controllers/dashboard.controller";
 import {
   addBlockSchema,
@@ -145,6 +146,10 @@ router.post(
   ),
   dashboardCountCards
 );
+
+// Platform Statistics Dashboard API
+router.get("/platform-statistics", getPlatformStatistics);
+
 const parseArrayFields = ( req: Request,
   res: Response,
   next: NextFunction) => {

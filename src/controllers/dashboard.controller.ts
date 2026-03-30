@@ -137,6 +137,21 @@ async function dashboardCountCards(req: Request, res: Response) {
   }
 }
 
+async function getPlatformStatistics(req: Request, res: Response) {
+  try {
+    const statistics = await dashboard_service.getPlatformStatistics();
+
+    return response_service.successResponse(
+      res,
+      "Dashboard statistics fetched successfully.",
+      statistics
+    );
+  } catch (err: any) {
+    logger.error("Error fetching dashboard statistics:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
 export {
   getCount,
   getAllUsersList,
@@ -144,4 +159,5 @@ export {
   getUser,
   updateUserAdmin,
   dashboardCountCards,
+  getPlatformStatistics,
 };
