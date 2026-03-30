@@ -4,6 +4,7 @@ import { initializeSocketIO } from "./socket";
 import { config } from "./config";
 import { initializeDatabase } from "./config/database";
 import removeExpieredSubscriptions from "./cron_jobs/RemoveExpieredSubscriptions";
+import seedAdmin from "./utils/seedAdmin";
 
 // Start the server
 const startServer = async (): Promise<void> => {
@@ -30,6 +31,9 @@ const startServer = async (): Promise<void> => {
       console.log(
         `✅ Server running on network at ${config.port}`
       );
+
+       // 👉 Call seed function AFTER DB sync
+    //  seedAdmin();
     });
 
     

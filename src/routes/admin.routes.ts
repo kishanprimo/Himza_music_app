@@ -103,6 +103,8 @@ import { getAdsForAdmin, deleteAd } from "../controllers/ad.controller";
 import { createPodcast,getAllPodcast,editPodcast,getPodcastById,deletePodcast } from "../controllers/podcast.controller";
 import { addEpisode,getEpisodeList,editEpisode, deleteEpisode } from "../controllers/episode.controller"
 import { addEpisodeSchema, deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
+import { broadcastMessage, getbroadcastMessage } from "../controllers/Pushnotification.controller";
+import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadcast.validator";
 
 const router = Router();
 
@@ -399,5 +401,9 @@ router.post("/add-episode",addEpisode)
 router.post("/get-episode-list",validateBody(z.object({podcast_id:z.string()})),getEpisodeList)
 router.post("/edit-episode",editEpisode)
 router.post("/delete-episode",validateBody(deleteEpisodeSchema),deleteEpisode)
+
+// routers for broadcast notifications ============
+router.post('/send-broadcast-notification', validateBody(broadcastMessageSchema), broadcastMessage);
+router.post('/list-broadcast-notification', validateBody(getBroadcastMessageSchema), getbroadcastMessage);
 
 export default router;
