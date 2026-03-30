@@ -12,7 +12,7 @@ const {
   User,
   History
 } = db;
-import { fn, col, literal } from "sequelize";
+import { fn, col, literal, QueryTypes } from "sequelize";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { Op } from "sequelize";
 
@@ -412,19 +412,25 @@ async function getTotalAlbums(): Promise<number> {
  */
 async function getTotalEarnings(): Promise<number> {
   try {
-    const result = await SubscribedUsers.findOne({
-      attributes: [
-        [fn("SUM", col("amount")), "total"],
-      ],
-      where: {
-        payment_status: "completed",
-      },
-      raw: true,
+    const query = `
+      SELECT COALESCE(SUM(amount), 0) as total 
+      FROM subscribedUsers 
+      WHERE payment_status = 'completed'
+    `;
+
+    const result: any = await db.sequelize?.query(query, {
+      type: QueryTypes.SELECT,
     });
 
-    return result?.total ? parseFloat(result.total) : 0;
+    if (!result || result.length === 0) {
+      return 0;
+    }
+
+    const total = result[0]?.total;
+    return total ? parseFloat(String(total)) : 0;
   } catch (err) {
-    throw err;
+    console.error("Error calculating total earnings:", err);
+    return 0;
   }
 }
 
@@ -502,34 +508,58 @@ async function getMonthwiseUserData(): Promise<any> {
       monthData[month] = 0;
     });
 
-    // Get data from database
-    const rawData = await User.findAll({
-      attributes: [
-        [fn("MONTH", col("createdAt")), "month"],
-        [fn("COUNT", col("user_id")), "count"],
-      ],
-      where: {
-        is_deleted: false,
-        createdAt: {
-          [Op.gte]: new Date(`${currentYear}-01-01`),
-          [Op.lt]: new Date(`${currentYear + 1}-01-01`),
-        },
-      },
-      group: [fn("MONTH", col("createdAt"))],
-      raw: true,
+    // Use raw SQL query for reliability
+    const query = `
+      SELECT 
+        MONTH(createdAt) as month, 
+        COUNT(*) as count 
+      FROM users 
+      WHERE is_deleted = false 
+        AND YEAR(createdAt) = :year
+      GROUP BY MONTH(createdAt)
+      ORDER BY month ASC
+    `;
+
+    const results: any = await db.sequelize?.query(query, {
+      replacements: { year: currentYear },
+      type: QueryTypes.SELECT,
     });
 
     // Map data to month names
-    rawData.forEach((row: any) => {
-      const monthIndex = parseInt(row.month) - 1;
-      if (monthIndex >= 0 && monthIndex < 12) {
-        monthData[monthNames[monthIndex]] = parseInt(row.count);
-      }
-    });
+    if (results && Array.isArray(results)) {
+      results.forEach((row: any) => {
+        if (row && row.month && row.count) {
+          const monthIndex = parseInt(String(row.month)) - 1;
+          if (monthIndex >= 0 && monthIndex < 12) {
+            monthData[monthNames[monthIndex]] = parseInt(String(row.count));
+          }
+        }
+      });
+    }
 
     return monthData;
   } catch (err) {
-    throw err;
+    console.error("Error fetching monthwise data:", err);
+    // Return default data on error
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const monthData: any = {};
+    monthNames.forEach((month) => {
+      monthData[month] = 0;
+    });
+    return monthData;
   }
 }
 
@@ -552,14 +582,18 @@ async function getLoginMethodBreakdown(): Promise<any> {
       };
     }
 
-    const loginData = await User.findAll({
-      attributes: [
-        "login_type",
-        [fn("COUNT", col("user_id")), "count"],
-      ],
-      where: { is_deleted: false },
-      group: ["login_type"],
-      raw: true,
+    // Use raw SQL for reliability
+    const query = `
+      SELECT 
+        login_type, 
+        COUNT(*) as count 
+      FROM users 
+      WHERE is_deleted = false
+      GROUP BY login_type
+    `;
+
+    const loginData: any = await db.sequelize?.query(query, {
+      type: QueryTypes.SELECT,
     });
 
     const breakdown: any = {
@@ -569,19 +603,30 @@ async function getLoginMethodBreakdown(): Promise<any> {
       apple: { count: 0, percentage: 0 },
     };
 
-    loginData.forEach((row: any) => {
-      const loginType = row.login_type || "email";
-      const count = parseInt(row.count);
-      const percentage = parseFloat(((count / totalUsers) * 100).toFixed(2));
+    // Safely handle results
+    if (loginData && Array.isArray(loginData)) {
+      loginData.forEach((row: any) => {
+        if (row) {
+          const loginType = row.login_type || "email";
+          const count = row.count ? parseInt(String(row.count)) : 0;
+          const percentage = parseFloat(((count / totalUsers) * 100).toFixed(2));
 
-      if (breakdown[loginType]) {
-        breakdown[loginType] = { count, percentage };
-      }
-    });
+          if (breakdown[loginType]) {
+            breakdown[loginType] = { count, percentage };
+          }
+        }
+      });
+    }
 
     return breakdown;
   } catch (err) {
-    throw err;
+    console.error("Error fetching login breakdown:", err);
+    return {
+      email: { count: 0, percentage: 0 },
+      mobile: { count: 0, percentage: 0 },
+      google: { count: 0, percentage: 0 },
+      apple: { count: 0, percentage: 0 },
+    };
   }
 }
 
