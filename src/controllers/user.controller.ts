@@ -6,13 +6,14 @@ import * as fs from "fs";
 import { getAvatar } from "../services/avatar.service";
 import { config } from "../config";
 import db from "../models";
+import { z } from "zod";
 
 const { Album, MusicSinger, song, SubscribedUsers, SunscriptionPlans, User } =
   db;
 
-  // get user ====================================================
+// get user ====================================================
 async function getUser(req: Request, res: Response) {
-console.info("user id profile",req.user.user_id)
+  console.info("user id profile", req.user.user_id)
 
   try {
     const user = await user_service.getUser(
@@ -37,25 +38,25 @@ console.info("user id profile",req.user.user_id)
           ],
         },
         { model: Album, as: "currentAlbum" },
-      {
-  model: SubscribedUsers,
-  as: "subscriptionPlan",
-  required: false,
-  where: {
-    is_active: true,
-  },
-  include: [
-    {
-      model: SunscriptionPlans,
-      as: "plan",
-    },
-  ],
-  order: [["createdAt", "DESC"]], // latest first
-  limit: 1, // sirf last plan
-},
+        {
+          model: SubscribedUsers,
+          as: "subscriptionPlan",
+          required: false,
+          where: {
+            is_active: true,
+          },
+          include: [
+            {
+              model: SunscriptionPlans,
+              as: "plan",
+            },
+          ],
+          order: [["createdAt", "DESC"]], // latest first
+          limit: 1, // sirf last plan
+        },
       ]
     );
-  console.info("user @q3234",user)
+    console.info("user @q3234", user)
 
 
     if (!user) return response_service.notFoundResponse(res, "User not found.");
@@ -85,12 +86,21 @@ console.info("user id profile",req.user.user_id)
  * @returns A success response with updated user data or an error response.
  */
 // update user ==========================================
-async function updateUser(req: Request, res: Response) {
+const updateProfileSchema = z.object({
+  full_name: z.string().trim().min(1).optional(),
+  username: z.string().trim().min(1).optional(),
+  gender: z.string().optional(),
+  dob: z.string().optional(),
+  email: z.string().trim().email().optional(),
+  avatar_id: z.coerce.number().int().positive().optional(),
+}).strict();
+
+async function updateUserold(req: Request, res: Response) {
   try {
     const userId = req.user.user_id || req.user.user_id;
     if (!userId) {
-  return response_service.badRequestResponse(res, "Invalid user");
-}
+      return response_service.badRequestResponse(res, "Invalid user");
+    }
     console.log(userId, "=---------------");
     let user = await user_service.getUser({ user_id: userId });
 
@@ -175,6 +185,151 @@ async function updateUser(req: Request, res: Response) {
 
     // For other errors, return a generic error message
     logger.error("Error updating user:", err);
+    return response_service.internalServerErrorResponse(
+      res,
+      "An error occurred while updating your profile. Please try again."
+    );
+  }
+}
+
+
+async function updateUser(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return response_service.badRequestResponse(res, "Invalid user");
+    }
+
+    // Validate only allowed profile fields.
+    const validatedData = updateProfileSchema.parse(req.body);
+
+    const user = await user_service.getUser({ user_id: userId });
+
+    if (!user) {
+      return response_service.badRequestResponse(res, "Invalid user");
+    }
+
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+
+    const updateData: Record<string, any> = {
+      full_name: validatedData.full_name,
+      username: validatedData.username,
+      gender: validatedData.gender,
+      dob: validatedData.dob,
+      email: validatedData.email,
+    };
+
+    // Remove fields not provided in the request.
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    let newProfilePic: string | undefined;
+
+    if (files?.["profile_pic"]?.[0]) {
+      newProfilePic = files["profile_pic"][0].path;
+    } else if (validatedData.avatar_id !== undefined) {
+      const avatar = await getAvatar(validatedData.avatar_id);
+
+      if (!avatar) {
+        return response_service.badRequestResponse(
+          res,
+          "Invalid avatar"
+        );
+      }
+
+      newProfilePic = avatar.path.replace(config.clientUrl, "");
+    }
+
+    if (newProfilePic !== undefined) {
+      updateData.profile_pic = newProfilePic;
+    }
+
+    // Do not update the database if there are no editable fields.
+    if (Object.keys(updateData).length === 0) {
+      return response_service.badRequestResponse(
+        res,
+        "No valid profile fields provided"
+      );
+    }
+
+    const updatedUser = await user_service.updateUser(
+      updateData,
+      { user_id: userId }
+    );
+
+    if (!updatedUser) {
+      return response_service.badRequestResponse(
+        res,
+        "User could not be updated"
+      );
+    }
+
+    // Delete old profile picture only after the update succeeds.
+    if (
+      newProfilePic &&
+      user.profile_pic &&
+      !user.profile_pic.includes("default_profile_pics")
+    ) {
+      const oldPic = user.profile_pic.replace(config.clientUrl, "");
+
+      if (oldPic !== newProfilePic && fs.existsSync(oldPic)) {
+        fs.unlinkSync(oldPic);
+      }
+    }
+
+    const refreshedUser = await user_service.getUser(
+      { user_id: userId },
+      [
+        {
+          model: SubscribedUsers,
+          as: "subscriptionPlan",
+          required: false,
+          where: { is_active: true },
+          include: [
+            {
+              model: SunscriptionPlans,
+              as: "plan",
+            },
+          ],
+        },
+      ]
+    );
+
+    return response_service.successResponse(
+      res,
+      "User updated successfully.",
+      removeExtraFields(refreshedUser, [
+        "otp",
+        "login_verification_status",
+        "login_type",
+        "is_admin",
+        "device_token",
+        "password",
+      ])
+    );
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return response_service.badRequestResponse(
+        res,
+        err.issues.map((issue) => issue.message).join(", ")
+      );
+    }
+
+    logger.error("Error updating user:", err);
+
+    if (err.parent?.code === "23505") {
+      return response_service.conflictResponse(
+        res,
+        "This value is already in use"
+      );
+    }
+
     return response_service.internalServerErrorResponse(
       res,
       "An error occurred while updating your profile. Please try again."

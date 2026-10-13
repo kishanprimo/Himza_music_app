@@ -189,28 +189,87 @@ async function getAllUsersList(
       offset,
     });
 
-    const cleanedUsers: IUser[] = await Promise.all(
-      users.map(async (user: any) => {
-        const cleanedUser = removeExtraFields(user.toJSON(), [
-          "password",
-          "otp",
-          "current_song_time",
-          "current_song_id",
-          "current_album_id",
-        ]) as IUser;
+    const userIds = users.map((user: any) => user.user_id);
 
-        const likes_count = await favoriteArtists.count({
-          where: { artist_user_id: cleanedUser.user_id },
-        });
-        const songs_count = await MusicSinger.count({
-          where: { user_id: cleanedUser.user_id },
-        });
-        const total_listens = await History.count({
-          where: { user_id: cleanedUser.user_id },
-        });
-        return { ...cleanedUser, likes_count, songs_count, total_listens };
-      })
+    const [likesCounts, songsCounts, listensCounts] = await Promise.all([
+      favoriteArtists.findAll({
+        attributes: [
+          "artist_user_id",
+          [fn("COUNT", col("artist_user_id")), "total"],
+        ],
+        where: {
+          artist_user_id: { [Op.in]: userIds },
+        },
+        group: ["artist_user_id"],
+        raw: true,
+      }),
+
+      MusicSinger.findAll({
+        attributes: [
+          "user_id",
+          [fn("COUNT", col("user_id")), "total"],
+        ],
+        where: {
+          user_id: { [Op.in]: userIds },
+        },
+        group: ["user_id"],
+        raw: true,
+      }),
+
+      History.findAll({
+        attributes: [
+          "user_id",
+          [fn("COUNT", col("user_id")), "total"],
+        ],
+        where: {
+          user_id: { [Op.in]: userIds },
+        },
+        group: ["user_id"],
+        raw: true,
+      }),
+    ]);
+
+    const likesMap = new Map(
+      likesCounts.map((item: any) => [
+        Number(item.artist_user_id),
+        Number(item.total),
+      ])
     );
+
+    const songsMap = new Map(
+      songsCounts.map((item: any) => [
+        Number(item.user_id),
+        Number(item.total),
+      ])
+    );
+
+    const listensMap = new Map(
+      listensCounts.map((item: any) => [
+        Number(item.user_id),
+        Number(item.total),
+      ])
+    );
+
+
+    const cleanedUsers: IUser[] = users.map((user: any) => {
+      const cleanedUser = removeExtraFields(user.toJSON(), [
+        "password",
+        "otp",
+        "current_song_time",
+        "current_song_id",
+        "current_album_id",
+      ]) as IUser;
+
+      const userId = Number(cleanedUser.user_id);
+
+      return {
+        ...cleanedUser,
+        likes_count: likesMap.get(userId) ?? 0,
+        songs_count: songsMap.get(userId) ?? 0,
+        total_listens: listensMap.get(userId) ?? 0,
+      };
+    });
+
     return {
       data: cleanedUsers,
       Pagination: {

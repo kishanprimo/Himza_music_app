@@ -9,10 +9,10 @@ const {
   singerGenre,
   song,
   History
-} =db;
+} = db;
 import { ISong } from "../types";
 import { user_service } from ".";
-import {Op} from 'sequelize';
+import { Op, fn, col } from "sequelize";
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -77,25 +77,64 @@ async function mySongs(
       ],
     });
     console.log(rows);
-    
-    const data = await Promise.all(
-      rows?.map(async (record:any) => {
-        const songData = record.get({ plain: true });
-        const favourites_count = await favorites.count({
-          where: { song_id: songData.song.song_id },
-        });
-        
-        const listens_count = await History.count({
-          where: { song_id: songData.song.song_id },
-        });
-        return {
-          singer: songData.singer,
-          ...songData.song,
-          favourites_count,
-          listens_count,
-        };
-      })
+
+    const songIds = rows
+      .map((record: any) => record.song?.song_id)
+      .filter((id: any) => id != null);
+
+    const [favouritesCounts, listensCounts] = songIds.length
+      ? await Promise.all([
+        favorites.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+
+        History.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+      ])
+      : [[], []];
+
+    const favouritesMap = new Map(
+      favouritesCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
     );
+
+    const listensMap = new Map(
+      listensCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
+    );
+
+    const data = rows.map((record: any) => {
+      const songData = record.get({ plain: true });
+      const songId = Number(songData.song?.song_id);
+
+      return {
+        singer: songData.singer,
+        ...songData.song,
+        favourites_count: favouritesMap.get(songId) ?? 0,
+        listens_count: listensMap.get(songId) ?? 0,
+      };
+    });
 
     return {
       data,
@@ -201,7 +240,7 @@ async function getFavoriteArtists(
 
     // Resolve all artist details
     const artists = await Promise.all(
-      rows.map(async (row:any) => {
+      rows.map(async (row: any) => {
         const { artist_user_id } = row.toJSON();
         const songs_count = await mySongsCount(
           parseInt(artist_user_id)

@@ -415,7 +415,7 @@ router.post(
   getAdsForAdmin
 );
 
-router.post("/get-user-subscriptions", getUserSubscriptions);
+// router.post("/get-user-subscriptions", getUserSubscriptions);
 
 // to delete ad from list ================================
 router.post(
