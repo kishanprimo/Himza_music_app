@@ -16,7 +16,6 @@ async function createGenre(req: Request, res: Response) {
       genrePayload.background_img = files["genre_background_img"][0].path;
     }
     const genre = await genre_category_service.createGenre(genrePayload);
-    console.log(genre);
 
     if (!genre)
       return response_service.badRequestResponse(

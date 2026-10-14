@@ -26,7 +26,6 @@ const {
 import { log } from "console";
 
 async function getSong(req: Request, res: Response) {
-  console.log("getSong", req.body, req.user);
   try {
     const song = await song_service.getSong(parseInt(req.body.song_id), [
       {
@@ -49,7 +48,6 @@ async function getSong(req: Request, res: Response) {
       },
     ]);
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
-    console.log("is_favorite", req.user?.user_id);
     const is_favorite = await song_service.isfavorite(
       req.user?.user_id,
       parseInt(req.body.song_id),
@@ -420,10 +418,6 @@ async function getMySongs(req: Request, res: Response) {
 
 async function createMusic(req: Request, res: Response) {
   try {
-
-    console.log("========== CREATE MUSIC ==========");
-    console.log("BODY:", req.body);
-    console.log("ARTIST IDS:", req.body.artist_ids);
     const files = req.files as
       | { [fieldname: string]: Express.Multer.File[] }
       | undefined;
@@ -451,8 +445,8 @@ async function createMusic(req: Request, res: Response) {
     const song = await singer_service.addSong({
       category_id: req.body.category_id,
       genre_id: req.body.genre_id,
-      audio: audio.path,
-      thumbnail: thumbnail.path,
+      audio: audio.path.replace(/\\/g, "/"),
+      thumbnail: thumbnail.path.replace(/\\/g, "/"),
       title: req.body.title,
       duration: duration.toString(),
     });
@@ -471,9 +465,6 @@ async function createMusic(req: Request, res: Response) {
         ? [req.body.artist_ids]
         : [];
 
-    console.log("ARTIST IDS:", artistIds);
-    console.log("CREATED SONG ID:", song.song_id);
-
     // 3. Add artists to music_singers
     for (const artistId of artistIds) {
       const singerId = Number(artistId);
@@ -482,22 +473,12 @@ async function createMusic(req: Request, res: Response) {
 
       const isSinger = await singer_service.isSinger(singerId);
 
-      console.log(
-        `Artist ${singerId} is singer:`,
-        isSinger,
-      );
-
       if (isSinger) {
         const songSinger =
           await singer_service.addSongToArtist(
             Number(song.song_id),
             singerId,
           );
-
-        console.log(
-          "MusicSinger created:",
-          songSinger,
-        );
       }
     }
 
@@ -538,7 +519,6 @@ async function updateSong(req: Request, res: Response) {
     //     updatedData.artist_ids = [];
     //   }
     // }
-    //     console.log(updatedData);
 
     if (files && files["audio"]) {
       updatedData.audio = files["audio"][0].path;
@@ -632,7 +612,6 @@ async function getfavoriteSongs(req: Request, res: Response) {
 
 // search for favorite songs ========================================
 async function searchFavoriteSongs(req: Request, res: Response) {
-  console.log("Search keyword !@12", req.body);
   try {
     const user = req.user as any;
 
@@ -760,7 +739,6 @@ export const searchDownloadedSongs = async (
 // all songs list ===============================================================
 async function getAllSongs(req: Request, res: Response) {
   try {
-    console.log(req.body);
     const songs = await song_service.getAllSongs(
       req.body.album_id,
       parseInt(req.body.page || 1),
@@ -785,7 +763,6 @@ async function getAllSongs(req: Request, res: Response) {
 
 async function getAdminAllSongs(req: Request, res: Response) {
   try {
-    console.log(req.body);
     const songs = await song_service.getAdminAllSongs(
       req.body.album_id,
       parseInt(req.body.page || 1),

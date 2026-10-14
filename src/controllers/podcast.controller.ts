@@ -78,11 +78,7 @@ export async function getPodcastById(req: Request, res: Response) {
 
 export async function editPodcast(req: Request, res: Response) {
   try {
-    console.log("podcas111t",req.body);
-    const { podcast_id, description, author_name } = req.body;
-    console.log("podcast",req.body);
-    
-
+    const { podcast_id, description, author_name } = req.body;  
     if (!podcast_id) {
       return response_service.badRequestResponse(res, "podcast_id is required.");
     }

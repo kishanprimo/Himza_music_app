@@ -76,7 +76,6 @@ async function mySongs(
         },
       ],
     });
-    console.log(rows);
 
     const songIds = rows
       .map((record: any) => record.song?.song_id)

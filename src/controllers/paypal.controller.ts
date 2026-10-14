@@ -10,7 +10,7 @@ const clientSecret = config.PAYPAL_CLIENT_SECRET;
 // Base URL for Sandbox
 const PAYPAL_API = config.PAYPAL_API;
 
-console.info("PAYPAL",clientId,clientSecret,PAYPAL_API)
+
 
 // Step 1 – Get Access Token
 async function getAccessToken(): Promise<string> {
@@ -54,7 +54,6 @@ async function getAccessToken(): Promise<string> {
 //       },
 //       data: orderData,
 //     });
-//     console.log(response.data, "response from create order");
 //     return response.data;
 //   } catch (error: any) {
 //     console.error("PayPal API error:", error.response?.data || error.message);
@@ -89,7 +88,6 @@ async function createOrder(amount: number) {
     return response.data;
 
   } catch (error: any) {
-    console.log("PayPal API error:", error.response?.data || error.message);
     throw new Error(error.response?.data?.error_description || "PayPal failed");
   }
 }

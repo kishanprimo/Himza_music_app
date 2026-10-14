@@ -18,7 +18,6 @@ const {
 
 // create album =============================================
 async function createAlbum(req: Request, res: Response) {
-  console.log("create playlist", req.body);
   
   try {
     const user = req.user;
@@ -74,7 +73,6 @@ async function createAlbum(req: Request, res: Response) {
 }
 
 async function createPlaylist(req: Request, res: Response) {
-  console.log("create playlist", req.body);
 
   try {
     const user = req.user;
@@ -134,12 +132,6 @@ async function createPlaylist(req: Request, res: Response) {
 async function addSongsToAlbum(req: Request, res: Response) {
   try {
     let user = req.user;
-
-    console.log(" my res values", req.body)
-
-    console.log("album_id:", req.body.album_id);
-console.log("user_id:", req.user?.user_id);
-
     let album;
     if (user.user_id) {
       album = await album_service.getAlbum(
@@ -180,9 +172,6 @@ console.log("user_id:", req.user?.user_id);
         ]
       );
     }
-
-
-    console.log("albumalbumalbumalbum" , album)
 
     if (!album)
       return response_service.badRequestResponse(res, "Album not found.");
@@ -323,7 +312,7 @@ if (!addedSongs)
 
 // remove song from album ==================================================
 async function removeSongsFromAlbum(req: Request, res: Response) {
-  console.log(req.body);
+
   try {
     let user = req.user;
     let album;
@@ -371,7 +360,6 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
 }
 
 async function removeSongsFromPlaylist(req: Request, res: Response) {
-  console.log(req.body);
 
   try {
     let user = req.user;
@@ -428,8 +416,6 @@ async function removeSongsFromPlaylist(req: Request, res: Response) {
 
 // search in playlist ================================================
 export async function searchPlaylist(req: Request, res: Response) {
-  console.log("Search Playlist", req.body);
-
   try {
     const userId = req.user?.user_id;
 
@@ -495,7 +481,6 @@ export async function removePlaylistSearchHistory(
   req: Request,
   res: Response
 ) {
-  console.log("Remove Playlist Search History", req.body);
   try {
     const userId = req.user?.user_id;
 
@@ -839,7 +824,6 @@ async function getFavoriteAlbums(req: Request, res: Response) {
 // search from favorite album list ========================================
 // search favorite albums =============================================
 async function searchFavoriteAlbums(req: Request, res: Response) {
-  console.log(req.body);
   
   try {
     const user = req.user;

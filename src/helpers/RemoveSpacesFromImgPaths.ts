@@ -40,8 +40,6 @@ async function cleanThumbnails() {
         console.warn('File not found:', oldFullPath);
       }
     }
-
-    console.log('Thumbnails cleaned: base URL removed, spaces stripped.');
   } catch (error) {
     console.error('Error cleaning thumbnails:', error);
   }

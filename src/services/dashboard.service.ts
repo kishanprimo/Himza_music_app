@@ -317,13 +317,6 @@ async function dashboardCountCards(
   entity: "users" | "songs" | "albums" | "earnings"
 ) {
   try {
-
-    console.log({
-      User,
-      Album,
-      Song,
-      SubscribedUsers,
-    });
     //  total, last month, growth %
     switch (entity) {
       case "users": {

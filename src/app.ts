@@ -8,7 +8,11 @@ import helmet from "helmet";
 
 const app: Application = express();
 app.use(bodyParser.json({ limit: "10mb" }));
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 app.use(

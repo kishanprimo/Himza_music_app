@@ -34,15 +34,10 @@ async function createBlock(req: Request, res: Response) {
 async function updateBlock(req: Request, res: Response) {
   try {
 
-    console.log("========== UPDATE BLOCK REQUEST ==========");
-    console.log("REQ BODY:", req.body);
-
     const block = await home_service.updateBlock(
       req.body,
       parseInt(req.body.block_id)
     );
-
-    console.log("UPDATED BLOCK:", block);
 
     if (!block) {
       return response_service.notFoundResponse(

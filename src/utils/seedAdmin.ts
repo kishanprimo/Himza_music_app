@@ -1,4 +1,5 @@
 import db from "../models"; // adjust based on your structure
+import { hashPassword } from "../services/common/password.service";
 
 const seedAdmin = async () => {
   try {
@@ -16,6 +17,8 @@ const seedAdmin = async () => {
       return;
     }
 
+    const hashedPassword = await hashPassword("123456");
+
     // 🔐 Hash password
 
     // ➕ Create admin
@@ -23,7 +26,7 @@ const seedAdmin = async () => {
       first_name: "Super",
       last_name: "Admin",
       email: adminEmail,
-      password: 123456,
+      password: hashedPassword,
       gender: "male",
       dob: "1995-01-01",
       mobile_number: "9999999999",

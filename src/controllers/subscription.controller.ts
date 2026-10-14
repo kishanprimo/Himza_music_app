@@ -212,7 +212,6 @@ async function afterPayment(req: Request, res: Response) {
         "Payment failed or pending."
       );
     }
-    console.log("DONE_________1");
     await subscription_service.subscribe({
       user_id: user.user_id,
       plan_id: subscription_plan_id,
@@ -221,7 +220,6 @@ async function afterPayment(req: Request, res: Response) {
       payment_method: req.body.payment_method,
       payment_status: req.body.payment_status,
     });
-    console.log("DONE_________2");
 
     const subscription = await user_service.getUser(
       {
@@ -247,7 +245,6 @@ async function afterPayment(req: Request, res: Response) {
         },
       ]
     );
-    console.log("DONE_________3");
     return response_service.successResponse(
       res,
       "Subscription created successfully.",

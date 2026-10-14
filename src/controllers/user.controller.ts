@@ -101,7 +101,6 @@ async function updateUserold(req: Request, res: Response) {
     if (!userId) {
       return response_service.badRequestResponse(res, "Invalid user");
     }
-    console.log(userId, "=---------------");
     let user = await user_service.getUser({ user_id: userId });
 
     const files = req.files as

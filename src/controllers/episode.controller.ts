@@ -32,8 +32,6 @@ import formatDuration from "../helpers/durationOfAudio";
 // }
 // export async function addEpisode(req: Request, res: Response) {
 //   try {
-//     console.log("BODY:", req.body);
-//     console.log("FILES:", req.files);
 
 //     const { podcast_title, episode_title, episode_description } = req.body;
 
@@ -100,7 +98,7 @@ export async function addEpisode(req: Request, res: Response) {
 
     const durationSeconds = metadata.format.duration || 0;
     const durationFormatted = formatDuration(durationSeconds);
-    console.log("durationFormatted", durationFormatted);
+   
 
     const payload = {
       podcast_title,

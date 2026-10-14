@@ -478,7 +478,6 @@ async function getAllSongs(
     if (excludeSongIds.length > 0) {
       whereClause.song_id = { [Op.notIn]: excludeSongIds };
     }
-    console.log(search);
 
     const { count, rows } = await song.findAndCountAll({
       where: {
@@ -714,7 +713,6 @@ async function getAdminAllSongs(
     if (excludeSongIds.length > 0) {
       whereClause.song_id = { [Op.notIn]: excludeSongIds };
     }
-    console.log(search);
 
     const { count, rows } = await song.findAndCountAll({
       where: {

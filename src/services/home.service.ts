@@ -139,11 +139,6 @@ async function addBlock(
         ? Number(maxOrderId) + 1
         : 1;
 
-    console.log("=================================");
-    console.log("MAX ORDER ID:", maxOrderId);
-    console.log("NEW ORDER ID:", newOrderId);
-    console.log("=================================");
-
     const block = await HomeBlocks.create({
       ...blockPayload,
       order_id: newOrderId,
@@ -291,18 +286,9 @@ async function getBlock(
   pageSize: number = 20,
   userId: number,
 ): Promise<Partial<IHomeBlocks> | null> {
-  console.log("getBlock called with:", { blockId });
+
   try {
     const block = (await HomeBlocks.findByPk(blockId)) as any;
-
-    console.log("EDIT BLOCK DB:", {
-      block_id: block?.block_id,
-      type: block?.type,
-      song_ids: block?.song_ids,
-      album_ids: block?.album_ids,
-      genre_ids: block?.genre_ids,
-      artist_ids: block?.artist_ids,
-    });
 
     if (!block) return null;
 

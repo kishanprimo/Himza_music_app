@@ -285,7 +285,6 @@ async function isfavorite(userId: number, albumId: number): Promise<boolean> {
 }
 
 async function setfavorite(userId: number, albumId: number): Promise<boolean> {
-  console.log("setfavorite", userId, albumId, favoriteAlbums);
   try {
     const favorite = await favoriteAlbums.findOne({
       where: { user_id: userId, album_id: albumId },
@@ -773,8 +772,6 @@ async function searchFavoriteAlbums(
       offset,
       order: [["createdAt", "DESC"]],
     });
-
-    console.log("rows", rows);
 
     if (!rows.length) return null;
 
