@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Album, Genre, HomeBlocks, MusicSinger, song, User,Downloads,favorites, favoriteArtists, favoriteAlbums} = db;
+const { Album, Genre, HomeBlocks, MusicSinger, song, User, Downloads, favorites, favoriteArtists, favoriteAlbums } = db;
 import { IHomeBlocks, ISong } from "../types";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { genre_category_service, user_service } from ".";
@@ -9,7 +9,7 @@ import { Sequelize } from "sequelize";
 async function getAllSongsByGenre(
   page: number = 1,
   pageSize: number = 10,
-  userId:number,
+  userId: number,
 ): Promise<any[]> {
   try {
     const offset = (page - 1) * pageSize;
@@ -17,13 +17,13 @@ async function getAllSongsByGenre(
       limit: pageSize,
       offset,
     });
-    return genres.map((genre:any) => genre.toJSON());
+    return genres.map((genre: any) => genre.toJSON());
   } catch (err) {
     throw err;
   }
 }
 
-async function addBlock(
+async function addBlockold(
   blockPayload: Partial<IHomeBlocks>
 ): Promise<IHomeBlocks> {
   try {
@@ -79,6 +79,81 @@ async function addBlock(
   }
 }
 
+async function addBlock(
+  blockPayload: Partial<IHomeBlocks>
+): Promise<IHomeBlocks> {
+  try {
+    const { type } = blockPayload;
+
+    if (!type) {
+      throw new Error("Block type is required.");
+    }
+
+    const hasAlbumIds = blockPayload.album_ids?.length;
+    const hasSongIds = blockPayload.song_ids?.length;
+    const hasGenreIds = blockPayload.genre_ids?.length;
+    const hasArtistIds = blockPayload.artist_ids?.length;
+
+    if (type === "album") {
+      if (hasSongIds || hasGenreIds || hasArtistIds) {
+        throw new Error(
+          "For album type, only album_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "song") {
+      if (hasAlbumIds || hasGenreIds || hasArtistIds) {
+        throw new Error(
+          "For song type, only song_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "genre") {
+      if (hasAlbumIds || hasSongIds || hasArtistIds) {
+        throw new Error(
+          "For genre type, only genre_ids are allowed."
+        );
+      }
+    }
+
+    if (type === "artist") {
+      if (hasAlbumIds || hasSongIds || hasGenreIds) {
+        throw new Error(
+          "For artist type, only artist_ids are allowed."
+        );
+      }
+    }
+
+    // Get maximum order_id from active blocks
+    const maxOrderId = await HomeBlocks.max("order_id", {
+      where: {
+        is_deleted: false,
+      },
+    });
+
+    const newOrderId =
+      maxOrderId !== null && maxOrderId !== undefined
+        ? Number(maxOrderId) + 1
+        : 1;
+
+    console.log("=================================");
+    console.log("MAX ORDER ID:", maxOrderId);
+    console.log("NEW ORDER ID:", newOrderId);
+    console.log("=================================");
+
+    const block = await HomeBlocks.create({
+      ...blockPayload,
+      order_id: newOrderId,
+    });
+
+    return block.toJSON();
+  } catch (err) {
+    throw err;
+  }
+}
+
 
 async function updateBlock(
   blockPayload: Partial<IHomeBlocks>,
@@ -92,6 +167,7 @@ async function updateBlock(
     if (!updatedRows[0]) return null;
 
     const updatedBlock = await HomeBlocks.findByPk(blockId);
+
     return updatedBlock ? updatedBlock.toJSON() : null;
   } catch (err) {
     throw err;
@@ -200,7 +276,7 @@ async function getAllBlocks(): Promise<{ blocks: Partial<IHomeBlocks>[] }> {
     });
 
     return {
-      blocks: rows.map((block:any) => block.toJSON() as Partial<IHomeBlocks>),
+      blocks: rows.map((block: any) => block.toJSON() as Partial<IHomeBlocks>),
     };
   } catch (err) {
     throw err;
@@ -212,11 +288,21 @@ async function getBlock(
   limits: { album?: number; song?: number; genre?: number; artist?: number },
   page: number = 1,
   pageSize: number = 20,
-  userId:number,
+  userId: number,
 ): Promise<Partial<IHomeBlocks> | null> {
   console.log("getBlock called with:", { blockId });
   try {
     const block = (await HomeBlocks.findByPk(blockId)) as any;
+
+    console.log("EDIT BLOCK DB:", {
+      block_id: block?.block_id,
+      type: block?.type,
+      song_ids: block?.song_ids,
+      album_ids: block?.album_ids,
+      genre_ids: block?.genre_ids,
+      artist_ids: block?.artist_ids,
+    });
+
     if (!block) return null;
 
     let start = (page - 1) * pageSize;
@@ -254,29 +340,30 @@ async function getBlock(
       // );
 
       const albums = await Promise.all(
-  paginatedIds.map(async (id: number) => {
-    const album: any = await Album.findByPk(id);
+        paginatedIds.map(async (id: number) => {
 
-    const isFavorite = userId
-  ? !!(await favoriteAlbums.findOne({
-      where: { user_id: userId, album_id: id },
-    }))
-  : false;
+          const album: any = await Album.findByPk(id);
 
-    if (!album) return null;
+          const isFavorite = userId
+            ? !!(await favoriteAlbums.findOne({
+              where: { user_id: userId, album_id: id },
+            }))
+            : false;
 
-    return {
-      album_id: album?.album_id,
-      is_favorite: !!isFavorite, // ⭐ ye new field
-      thumbnail: album?.thumbnail,
-      title: album?.title,
-      subtitle: album?.subtitle,
-      description: album?.description,
-    };
-  })
-);
+          if (!album) return null;
 
-data.push(...albums.filter(Boolean));
+          return {
+            album_id: album?.album_id,
+            is_favorite: !!isFavorite, // ⭐ ye new field
+            thumbnail: album?.thumbnail,
+            title: album?.title,
+            subtitle: album?.subtitle,
+            description: album?.description,
+          };
+        })
+      );
+
+      data.push(...albums.filter(Boolean));
     }
     // song block ===========================================
     if (block.type === "song" || (isMix && limits["song"])) {
@@ -290,6 +377,9 @@ data.push(...albums.filter(Boolean));
 
       const songs = await Promise.all(
         paginatedIds.map(async (id: number) => {
+
+          console.log("FETCHING SONG ID:", id);
+
           const Song = (await song.findByPk(id, {
             include: [
               {
@@ -305,18 +395,29 @@ data.push(...albums.filter(Boolean));
               },
             ],
           })) as Partial<ISong>;
-          const is_favorite = await favorites.findOne({
-          where: { user_id: userId, song_id: id },
-        });
-        const is_downloaded = await Downloads.findOne({
-          where: { user_id: userId, song_id: id },
-        });
 
-          if (!Song) return null;
+          console.log("FOUND SONG:", {
+            id,
+            song_id: Song?.song_id,
+            title: Song?.title,
+            audio: Song?.audio,
+          });
+
+          const is_favorite = await favorites.findOne({
+            where: { user_id: userId, song_id: id },
+          });
+          const is_downloaded = await Downloads.findOne({
+            where: { user_id: userId, song_id: id },
+          });
+
+          if (!Song) {
+            console.log("❌ SONG NOT FOUND:", id);
+            return null;
+          }
           return {
             song_id: Song.song_id,
-            is_favorite:!!is_favorite,
-            is_downloaded:!!is_downloaded,
+            is_favorite: !!is_favorite,
+            is_downloaded: !!is_downloaded,
             thumbnail: Song.thumbnail,
             audio: Song.audio,
             title: Song.title,
@@ -331,7 +432,10 @@ data.push(...albums.filter(Boolean));
           };
         })
       );
-     
+
+      console.log("FINAL SONGS:", songs);
+
+
 
       data.push(...songs.filter(Boolean)); // filter out nulls
     }
@@ -361,48 +465,48 @@ data.push(...albums.filter(Boolean));
     }
 
     // artist block =============================================
-   if (block.type === "artist" || (isMix && limits["artist"])) {
-  if (limits["artist"]) {
-    start = (page - 1) * limits["artist"];
-    end = start + limits["artist"];
-  }
+    if (block.type === "artist" || (isMix && limits["artist"])) {
+      if (limits["artist"]) {
+        start = (page - 1) * limits["artist"];
+        end = start + limits["artist"];
+      }
 
-  const allIds = block.artist_ids || [];
-  const paginatedIds = allIds.slice(start, end);
-  total += allIds.length;
+      const allIds = block.artist_ids || [];
+      const paginatedIds = allIds.slice(start, end);
+      total += allIds.length;
 
-  const artists = await Promise.all(
-    paginatedIds.map((id: number) =>
-      user_service.getUser({ user_id: id.toString() })
-    )
-  );
+      const artists = await Promise.all(
+        paginatedIds.map((id: number) =>
+          user_service.getUser({ user_id: id.toString() })
+        )
+      );
 
-  data.push(
-    ...(await Promise.all(
-      artists.map(async (artist: any) => {
-        const songs_count = await MusicSinger.count({
-          where: { user_id: artist["user_id"] },
-        });
+      data.push(
+        ...(await Promise.all(
+          artists.map(async (artist: any) => {
+            const songs_count = await MusicSinger.count({
+              where: { user_id: artist["user_id"] },
+            });
 
-        // 🔥 favorite check
-        const fav = await favoriteArtists.findOne({
-          where: {
-            user_id: userId,
-            artist_user_id: artist["user_id"],
-          },
-        });
+            // 🔥 favorite check
+            const fav = await favoriteArtists.findOne({
+              where: {
+                user_id: userId,
+                artist_user_id: artist["user_id"],
+              },
+            });
 
-        return {
-          user_id: artist["user_id"],
-          full_name: artist["full_name"],
-          profile_pic: artist["profile_pic"],
-          songs_count,
-          artist_favorite: !!fav,
-        };
-      })
-    ))
-  );
-}
+            return {
+              user_id: artist["user_id"],
+              full_name: artist["full_name"],
+              profile_pic: artist["profile_pic"],
+              songs_count,
+              artist_favorite: !!fav,
+            };
+          })
+        ))
+      );
+    }
 
     return {
       block_id: block.block_id,
@@ -416,7 +520,8 @@ data.push(...albums.filter(Boolean));
       artist_count,
       is_visible: block.is_visible,
       order_id: block.order_id,
-      data: data.sort(() => Math.random() - 0.5),
+      // data: data.sort(() => Math.random() - 0.5),
+      data: data,
       pagination: {
         page: parseInt(page.toString()),
         pageSize: parseInt(
@@ -431,6 +536,35 @@ data.push(...albums.filter(Boolean));
   }
 }
 
+async function reorderBlocks(
+  blockOrders: { block_id: string | number; order_id: number }[]
+) {
+  const transaction = await db.sequelize!.transaction();
+
+  try {
+    for (const item of blockOrders) {
+      await HomeBlocks.update(
+        {
+          order_id: Number(item.order_id),
+        },
+        {
+          where: {
+            block_id: Number(item.block_id),
+          },
+          transaction,
+        }
+      );
+    }
+
+    await transaction.commit();
+
+    return blockOrders;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
 export default {
   getAllSongsByGenre,
   addBlock,
@@ -439,4 +573,5 @@ export default {
   removeDataFromBlock,
   getAllBlocks,
   getBlock,
+  reorderBlocks,
 };

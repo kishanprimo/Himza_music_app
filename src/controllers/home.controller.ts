@@ -4,10 +4,24 @@ import { Request, Response } from "express";
 
 async function songsByGenre(req: Request, res: Response) {
   try {
-    const songs = await home_service.getAllSongsByGenre(req.body.page,req.body.limit,req.user.user_id);
+    const userId = req.user?.user_id || 0;
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    const songs = await home_service.getAllSongsByGenre(
+      page,
+      limit,
+      userId
+    );
+
     if (!songs || songs.length === 0) {
-      return response_service.notFoundResponse(res, "No songs found.");
+      return response_service.notFoundResponse(
+        res,
+        "No songs found."
+      );
     }
+
     return response_service.successResponse(
       res,
       "Songs retrieved successfully.",
@@ -15,7 +29,11 @@ async function songsByGenre(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error retrieving songs:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
+
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
   }
 }
 
@@ -33,21 +51,36 @@ async function createBlock(req: Request, res: Response) {
 
 async function updateBlock(req: Request, res: Response) {
   try {
+
+    console.log("========== UPDATE BLOCK REQUEST ==========");
+    console.log("REQ BODY:", req.body);
+
     const block = await home_service.updateBlock(
       req.body,
       parseInt(req.body.block_id)
     );
+
+    console.log("UPDATED BLOCK:", block);
+
     if (!block) {
-      return response_service.notFoundResponse(res, "Block not found.");
+      return response_service.notFoundResponse(
+        res,
+        "Block not found."
+      );
     }
+
     return response_service.successResponse(
       res,
       "Block updated successfully.",
       { block }
     );
+
   } catch (err: any) {
     logger.error("Error updating block:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
   }
 }
 
@@ -116,7 +149,7 @@ async function getBlockById(req: Request, res: Response) {
       req.body.limits ?? {},
       parseInt(req.body.page) || req.body.page,
       parseInt(req.body.limit) || req.body.limit,
-     userId
+      userId
     );
     if (!block) {
       return response_service.notFoundResponse(res, "Block not found.");
@@ -152,6 +185,34 @@ async function deleteBlock(req: Request, res: Response) {
   }
 }
 
+async function reorderBlocks(req: Request, res: Response) {
+  try {
+    const { block_orders } = req.body;
+
+    if (!Array.isArray(block_orders) || block_orders.length === 0) {
+      return response_service.internalServerErrorResponse(
+        res,
+        "block_orders must be a non-empty array"
+      );
+    }
+
+    const blocks = await home_service.reorderBlocks(block_orders);
+
+    return response_service.successResponse(
+      res,
+      "Blocks reordered successfully.",
+      { blocks }
+    );
+  } catch (err: any) {
+    logger.error("Error reordering blocks:", err);
+
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
+  }
+}
+
 export {
   songsByGenre,
   createBlock,
@@ -161,4 +222,5 @@ export {
   removeDataFromBlock,
   getBlockById,
   deleteBlock,
+  reorderBlocks,
 };

@@ -12,7 +12,8 @@ import {
   getDownloadedSongs,
   getTrendingSongs,
   deleteSong,
-  searchDownloadedSongs
+  searchDownloadedSongs,
+  getAdminAllSongs,
 } from "../controllers/song.controller";
 import { uploadMusicSchema, updateMusicSchema } from "../zod/song.validator";
 import { validateBody } from "../middleware/zod.middleware";
@@ -40,6 +41,21 @@ router.post(
   ),
   getAllSongs,
 );
+
+router.post(
+  "/admin-all-songs",
+  optionalAuth,
+  validateBody(
+    z.object({
+      album_id: z.string().optional(),
+      page: z.string().optional(),
+      limit: z.string().optional(),
+      search: z.string().optional(),
+    }),
+  ),
+  getAdminAllSongs,
+);
+
 
 router.get("/next-song", getNextSong);
 

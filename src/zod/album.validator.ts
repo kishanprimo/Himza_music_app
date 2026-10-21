@@ -11,9 +11,8 @@ export const createAlbumSchema = z.object({
         .array(z.string())
         .min(1, 'At least one song is required').optional(),
     description: z.string().optional(),
-   is_private: z.coerce.boolean({
-    required_error: "is_private is required",
-  }),
+   // multipart/form-data sends "true"/"false" strings; z.coerce.boolean() would turn "false" into true
+   is_private: z.preprocess((v) => v === true || v === "true", z.boolean()),
 });
 
 export const updateAlbumSchema = z.object({

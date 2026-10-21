@@ -178,7 +178,7 @@ async function getfavoriteSongs(
         total_records: total,
         total_pages: Math.ceil(total / limit),
       },
-     
+
     };
   } catch (err) {
     throw err;
@@ -485,16 +485,17 @@ async function getAllSongs(
         ...whereClause,
         ...(search
           ? {
-              [Op.or]: [
-                { title: { [Op.iLike]: `%${search}%` } }, // song title match
-                { "$artists.singer.full_name$": { [Op.iLike]: `%${search}%` } }, // artist name match
-              ],
-            }
+            [Op.or]: [
+              { title: { [Op.iLike]: `%${search}%` } }, // song title match
+              { "$artists.singer.full_name$": { [Op.iLike]: `%${search}%` } }, // artist name match
+            ],
+          }
           : {}),
       },
       limit,
       offset,
-      order: [sequelize.literal("RANDOM()")],
+      // order: [["createdAt", "DESC"]],
+      order: [[sequelize.literal("RANDOM()")]],
       distinct: true,
       include: [
         {
@@ -533,16 +534,172 @@ async function getAllSongs(
     const totalPages = Math.ceil(count / limit);
     const data = await Promise.all(
       rows.map(async (song: any) => {
-       const is_favorite = userId
-  ? !!(await favorites.findOne({
-      where: { user_id: userId, song_id: song.get("song_id") },
-    }))
-  : false;
-      const is_downloaded = userId
-  ? !!(await Downloads.findOne({
-      where: { user_id: userId, song_id: song.get("song_id") },
-    }))
-  : false;
+        const is_favorite = userId
+          ? !!(await favorites.findOne({
+            where: { user_id: userId, song_id: song.get("song_id") },
+          }))
+          : false;
+        const is_downloaded = userId
+          ? !!(await Downloads.findOne({
+            where: { user_id: userId, song_id: song.get("song_id") },
+          }))
+          : false;
+        const download_counts = await Downloads.count({
+          where: { song_id: song.get("song_id") },
+        });
+        const listen_counts = await History.count({
+          where: { song_id: song.get("song_id") },
+        });
+        return {
+          ...song.toJSON(),
+          is_favorite: !!is_favorite,
+          is_downloaded: !!is_downloaded,
+          download_counts,
+          listen_counts,
+        };
+      }),
+    );
+
+    return {
+      data,
+      Pagination: {
+        current_page: page,
+        records_per_page: limit,
+        total_pages: totalPages,
+        total_records: count,
+      },
+    };
+  } catch (err) {
+    logger.error("Error fetching paginated songs:", err);
+    throw err;
+  }
+}
+
+async function getAdminAllSongs(
+  albumId?: number,
+  page: number = 1,
+  limit: number = 10,
+  userId: number = 0,
+  for_admin: boolean = false,
+  search?: string,
+): Promise<{
+  data: any[];
+  Pagination: {
+    current_page: number;
+    records_per_page: number;
+    total_pages: number;
+    total_records: number;
+  };
+}> {
+  try {
+    const offset = (page - 1) * limit;
+
+    // Exclude songs in the album, if albumId is provided
+    let excludeSongIds: number[] = [];
+    if (albumId) {
+      const albumSongs = await AlbumSongs.findAll({
+        where: {
+          ...(albumId && { album_id: albumId }),
+          ...(for_admin && { status: true }),
+        },
+        attributes: ["song_id"],
+      });
+      excludeSongIds = albumSongs.map(
+        (song: any) => song.get("song_id") as number,
+      );
+    }
+
+    const whereClause: any = {};
+    if (excludeSongIds.length > 0) {
+      whereClause.song_id = { [Op.notIn]: excludeSongIds };
+    }
+    console.log(search);
+
+    const { count, rows } = await song.findAndCountAll({
+      where: {
+        ...whereClause,
+
+        ...(search
+          ? {
+            [Op.or]: [
+              {
+                title: {
+                  [Op.iLike]: `%${search}%`,
+                },
+              },
+
+              // Search by singer name
+              sequelize.literal(`
+              EXISTS (
+                SELECT 1
+                FROM "music_singers" AS ms
+                INNER JOIN "users" AS u
+                  ON u."user_id" = ms."user_id"
+                WHERE ms."song_id" = "song"."song_id"
+                  AND u."full_name" ILIKE '%${search.replace(/'/g, "''")}%'
+              )
+            `),
+            ],
+          }
+          : {}),
+      },
+
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
+      distinct: true,
+
+      include: [
+        {
+          model: Genre,
+          as: "genre",
+          attributes: ["genre_id", "name"],
+        },
+
+        {
+          model: MusicSinger,
+          as: "artists",
+          attributes: ["music_singer_id"],
+
+          include: [
+            {
+              model: User,
+              as: "singer",
+              attributes: ["user_id", "full_name", "profile_pic"],
+              required: true,
+            },
+          ],
+        },
+
+        {
+          model: MovieSongConnection,
+          as: "movie",
+          attributes: ["movie_song_id"],
+
+          include: [
+            {
+              model: Movie,
+              as: "movie_details",
+              attributes: ["movie_id", "title", "poster"],
+            },
+          ],
+        },
+      ],
+    });
+
+    const totalPages = Math.ceil(count / limit);
+    const data = await Promise.all(
+      rows.map(async (song: any) => {
+        const is_favorite = userId
+          ? !!(await favorites.findOne({
+            where: { user_id: userId, song_id: song.get("song_id") },
+          }))
+          : false;
+        const is_downloaded = userId
+          ? !!(await Downloads.findOne({
+            where: { user_id: userId, song_id: song.get("song_id") },
+          }))
+          : false;
         const download_counts = await Downloads.count({
           where: { song_id: song.get("song_id") },
         });
@@ -590,7 +747,7 @@ async function getTrendingSongs(
       order: [[fn("COUNT", col("song_id")), "DESC"]],
     });
     const songIds = songsData.map((song: any) => song.get("song_id") as number);
-  
+
     const songs = await song.findAll({
       where: { song_id: songIds },
       include: [
@@ -636,23 +793,23 @@ async function getTrendingSongs(
     // Get user favorites in ONE query
     const userFavorites = userId
       ? await favorites.findAll({
-          where: {
-            user_id: userId,
-            song_id: { [Op.in]: fetchedSongIds },
-          },
-          attributes: ["song_id"],
-        })
+        where: {
+          user_id: userId,
+          song_id: { [Op.in]: fetchedSongIds },
+        },
+        attributes: ["song_id"],
+      })
       : [];
 
     // Get user downloads in ONE query
     const userDownloads = userId
       ? await Downloads.findAll({
-          where: {
-            user_id: userId,
-            song_id: { [Op.in]: fetchedSongIds },
-          },
-          attributes: ["song_id"],
-        })
+        where: {
+          user_id: userId,
+          song_id: { [Op.in]: fetchedSongIds },
+        },
+        attributes: ["song_id"],
+      })
       : [];
 
     const favoriteSet = new Set(userFavorites.map((f: any) => f.song_id));
@@ -710,4 +867,5 @@ export default {
   searchDownloadedSongs,
   getTrendingSongs,
   deleteSong,
+  getAdminAllSongs,
 };

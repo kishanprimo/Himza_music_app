@@ -45,15 +45,29 @@ async function updateUser(
   where: Partial<IUser>
 ): Promise<IUser | null> {
   try {
-    await User.update(data, { where: { ...where, is_deleted: false } });
-    const user = await User.findOne({ where });
+    const [updatedCount] = await User.update(data, {
+      where: {
+        ...where,
+        is_deleted: false,
+      },
+    });
+
+    if (updatedCount === 0) {
+      return null;
+    }
+
+    const user = await User.findOne({
+      where: {
+        ...where,
+        // is_deleted condition yaha mat lagao
+      },
+    });
+
     if (!user) return null;
+
     return removeExtraFields(user.toJSON(), [
       "password",
       "otp",
-      // 'current_song_time',
-      // 'current_song_id',
-      // 'current_album_id'
     ]) as IUser;
   } catch (err) {
     throw err;
@@ -167,5 +181,5 @@ export default {
   deleteUser,
   getUserSubscriptions,
   getArtist,
-  
+
 };

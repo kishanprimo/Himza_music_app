@@ -21,6 +21,16 @@ const development: DBConfig = {
     logging: false,
 };
 
+const production: DBConfig = {
+    host: process.env.DB_HOST as string,
+    username: process.env.DB_USERNAME as string,
+    password: process.env.DB_PASSWORD as string,
+    database: process.env.DB_NAME as string,
+    dialect: "postgres",
+    logging: false,
+};
+
 export default {
     development,
+production,
 };

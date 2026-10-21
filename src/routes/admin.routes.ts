@@ -33,6 +33,7 @@ import {
   deleteBlock,
   removeDataFromBlock,
   updateBlock,
+  reorderBlocks,
 } from "../controllers/home.controller";
 import { updateMusicSchema, uploadMusicSchema } from "../zod/song.validator";
 import {
@@ -101,8 +102,8 @@ import {
 } from "../controllers/subscription.controller";
 import { paginationSchema } from "../zod/pagenation.validator";
 import { getAdsForAdmin, deleteAd } from "../controllers/ad.controller";
-import { createPodcast,getAllPodcast,editPodcast,getPodcastById,deletePodcast } from "../controllers/podcast.controller";
-import { addEpisode,getEpisodeList,editEpisode, deleteEpisode } from "../controllers/episode.controller"
+import { createPodcast, getAllPodcast, editPodcast, getPodcastById, deletePodcast } from "../controllers/podcast.controller";
+import { addEpisode, getEpisodeList, editEpisode, deleteEpisode } from "../controllers/episode.controller"
 import { addEpisodeSchema, deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
 import { broadcastMessage, getbroadcastMessage } from "../controllers/Pushnotification.controller";
 import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadcast.validator";
@@ -148,12 +149,12 @@ router.post(
 );
 
 // Platform Statistics Dashboard API
-router.get("/platform-statistics", getPlatformStatistics);
+router.post("/platform-statistics", getPlatformStatistics);
 
-const parseArrayFields = ( req: Request,
+const parseArrayFields = (req: Request,
   res: Response,
   next: NextFunction) => {
-  const fields = ["artist_ids", "genre_ids","song_ids","album_ids"];
+  const fields = ["artist_ids", "genre_ids", "song_ids", "album_ids"];
 
   fields.forEach((field) => {
     if (typeof req.body[field] === "string") {
@@ -181,9 +182,37 @@ router.post(
 );
 router.post("/delete-block", deleteBlock);
 
+router.post("/reorder-blocks", reorderBlocks);
 
+const parseUploadMusicFields = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const artistIds = req.body.artist_ids;
 
-router.post("/upload-song", parseArrayFields, validateBody(uploadMusicSchema), createMusic);
+  if (artistIds !== undefined) {
+    if (Array.isArray(artistIds)) {
+      req.body.artist_ids = artistIds.map(String);
+    } else if (typeof artistIds === "string") {
+      req.body.artist_ids = [artistIds];
+    }
+  }
+
+  const albumIds = req.body.album_ids;
+
+  if (albumIds !== undefined) {
+    if (Array.isArray(albumIds)) {
+      req.body.album_ids = albumIds.map(String);
+    } else if (typeof albumIds === "string") {
+      req.body.album_ids = [albumIds];
+    }
+  }
+
+  next();
+};
+
+router.post("/upload-song", parseUploadMusicFields, validateBody(uploadMusicSchema), createMusic);
 router.post("/update-song", validateBody(updateMusicSchema), updateSong);
 router.post(
   "/delete-song",
@@ -207,6 +236,8 @@ const parseGenreIds = (
   }
   next();
 };
+
+
 
 
 router.post(
@@ -275,8 +306,33 @@ router.post(
   removeGenre
 );
 
+const parseAlbumSongIds = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (typeof req.body.song_id === "string") {
+    try {
+      const parsed = JSON.parse(req.body.song_id);
+
+      if (Array.isArray(parsed)) {
+        req.body.song_id = parsed.map(String);
+      }
+    } catch {
+      // Invalid input will be rejected by Zod
+    }
+  }
+
+  next();
+};
+
 router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
-router.post("/update-album", validateBody(updateAlbumSchema), updateAlbum);
+router.post(
+  "/update-album",
+  parseAlbumSongIds,
+  validateBody(updateAlbumSchema),
+  updateAlbum
+);
 router.post(
   "/add-Songs-to-album",
   validateBody(addOrRemoveSongsFromAlbumSchema),
@@ -394,18 +450,18 @@ router.post(
 );
 
 // routers for podacst ===============================
-router.post("/create-podcast",createPodcast)
-router.post("/get-podcast-list",getAllPodcast)
-router.post("/edit-podcast",validateBody(editPodcastSchema),editPodcast)
-router.post("/get-podcast-details",validateBody(z.object({podcast_id:z.string().min(1,"podcast_id is required.")})),getPodcastById)
-router.post("/delete-podcast",validateBody(z.object({podcast_id:z.string().min(1,"podcast_id is required.")})),deletePodcast)
+router.post("/create-podcast", createPodcast)
+router.post("/get-podcast-list", getAllPodcast)
+router.post("/edit-podcast", validateBody(editPodcastSchema), editPodcast)
+router.post("/get-podcast-details", validateBody(z.object({ podcast_id: z.string().min(1, "podcast_id is required.") })), getPodcastById)
+router.post("/delete-podcast", validateBody(z.object({ podcast_id: z.string().min(1, "podcast_id is required.") })), deletePodcast)
 
 
 // routers for episode ==============================
-router.post("/add-episode",addEpisode)
-router.post("/get-episode-list",validateBody(z.object({podcast_id:z.string()})),getEpisodeList)
-router.post("/edit-episode",editEpisode)
-router.post("/delete-episode",validateBody(deleteEpisodeSchema),deleteEpisode)
+router.post("/add-episode", addEpisode)
+router.post("/get-episode-list", validateBody(z.object({ podcast_id: z.string() })), getEpisodeList)
+router.post("/edit-episode", editEpisode)
+router.post("/delete-episode", validateBody(deleteEpisodeSchema), deleteEpisode)
 
 // routers for broadcast notifications ============
 router.post('/send-broadcast-notification', validateBody(broadcastMessageSchema), broadcastMessage);

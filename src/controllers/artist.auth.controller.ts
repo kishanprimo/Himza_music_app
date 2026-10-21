@@ -11,7 +11,7 @@ import { config } from "../config";
 import fs from "fs";
 import db from "../models";
 
-const { Genre, singerGenre,  SubscribedUsers,
+const { Genre, singerGenre, SubscribedUsers,
   SunscriptionPlans } = db;
 
 async function createArtist(req: Request, res: Response) {
@@ -37,7 +37,7 @@ async function createArtist(req: Request, res: Response) {
         );
       });
     }
-    
+
     if (!artist)
       return response_service.badRequestResponse(
         res,
@@ -108,12 +108,22 @@ async function updateArtist(req: Request, res: Response) {
 async function deleteArtist(req: Request, res: Response) {
   try {
     const artistId = req.body.user_id;
+
     const artist = await user_service.updateUser(
       { is_deleted: true },
-      { user_id: artistId, is_singer: true, is_deleted: false }
+      {
+        user_id: artistId,
+        is_singer: true,
+      }
     );
-    if (!artist)
-      return response_service.badRequestResponse(res, "Artist not found.");
+
+    if (!artist) {
+      return response_service.badRequestResponse(
+        res,
+        "Artist not found."
+      );
+    }
+
     return response_service.successResponse(
       res,
       "Artist deleted successfully.",
@@ -121,7 +131,10 @@ async function deleteArtist(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error deleting artist:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
   }
 }
 

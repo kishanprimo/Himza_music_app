@@ -109,6 +109,7 @@ async function search(
             [Op.iLike]: `${searchTerm}%`,
           },
           is_singer: true,
+          is_deleted : false,
         },
         limit,
         offset,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const addBlockSchema = z.object({
-    type: z.enum(['artist', 'album', 'song', 'genre','mix'], {
+    type: z.enum(['artist', 'album', 'song', 'genre', 'mix'], {
         required_error: 'Type is required',
         invalid_type_error: 'Type must be either "artist", "album","genre" or "song"',
     }),
@@ -25,7 +25,21 @@ export const updateBlockSchema = z.object({
     type: z.enum(['artist', 'album', 'song', 'genre', 'mix']).optional(),
     title: z.string().optional(),
     subtitle: z.string().optional(),
-    description: z.string().optional()
+    description: z.string().optional(),
+
+    layout: z.enum([
+        "circle",
+        "square",
+        "rectangle",
+    ]).optional(),
+
+    album_ids: z.array(z.string()).optional(),
+
+    song_ids: z.array(z.string()).optional(),
+
+    genre_ids: z.array(z.string()).optional(),
+
+    artist_ids: z.array(z.string()).optional(),
 
 });
 

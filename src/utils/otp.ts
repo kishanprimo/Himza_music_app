@@ -63,7 +63,7 @@ async function sendMesg91TP(country_code: string, mobile_num: string, otp: strin
 
 
 function generateOTP() {
-    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otp = Math.floor(1000 + Math.random() * 9000);
     return otp.toString();
 }
 
@@ -83,6 +83,14 @@ const sendEmailOTP = async (email: string, otp: string) => {
         }
     });
 
+    console.log({
+        service: emailConfig.service,
+        host: emailConfig.host,
+        port: emailConfig.port,
+        user: emailConfig.user,
+        pass: emailConfig.pass ? "******" : "EMPTY"
+    });
+
     const mailOptions = {
         from: emailConfig.user,
         to: email,
@@ -94,6 +102,7 @@ const sendEmailOTP = async (email: string, otp: string) => {
         const info = await transporter.sendMail(mailOptions);
         return info
     } catch (err) {
+        console.error("Email Error:", err);
         logger.error("Error sending email:", err);
         return false;
     }

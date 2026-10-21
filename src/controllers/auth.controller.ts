@@ -10,7 +10,14 @@ const { SubscribedUsers, SunscriptionPlans } = db;
 
 async function register(req: Request, res: Response) {
   try {
-    let otp = config.nodeEnv === "development" ? "1234" : generateOTP();
+    // let otp = config.nodeEnv === "development" ? "1234" : generateOTP();
+    let otp =
+      req.body.email === "demo@gmail.com"
+        ? "1234"
+        : config.nodeEnv === "development"
+          ? "1234"
+          : generateOTP();
+
     if (req.body.login_type == "email") {
       if (config.ALLLOW_LOGIN_BY_EMAIL == "false") {
         return response_service.badRequestResponse(
@@ -96,7 +103,7 @@ async function register(req: Request, res: Response) {
           model: SubscribedUsers,
           as: "subscriptionPlan",
           where: { is_active: true },
-          required:false,
+          required: false,
           include: [
             {
               model: SunscriptionPlans,
@@ -107,6 +114,17 @@ async function register(req: Request, res: Response) {
       ]);
 
       if (user) {
+        if (req.body.device_token) {
+          await user_service.updateUser(
+            {
+              device_token: req.body.device_token,
+            },
+            {
+              user_id: user.user_id,
+            }
+          );
+        }
+        
         const token = await token_service.generateToken({
           user_id: user.user_id,
         });
@@ -183,11 +201,11 @@ async function resendOTP(req: Request, res: Response) {
 
 // To Genrate OTP ===========================================
 function generateOTP() {
-  const otp = Math.floor(100000 + Math.random() * 900000);
+  const otp = Math.floor(1000 + Math.random() * 9000);
   return otp.toString();
 }
 
-async function verifyOtp(req: Request, res: Response) {
+async function verifyOtpold(req: Request, res: Response) {
   try {
     let user, token;
     if (req.body.login_type == "email") {
@@ -225,6 +243,82 @@ async function verifyOtp(req: Request, res: Response) {
       ]),
       token,
     });
+  } catch (err: any) {
+    logger.error("Error verifying OTP:", err);
+    return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
+async function verifyOtp(req: Request, res: Response) {
+  try {
+    let user, token;
+
+    console.log("REQ BODY:", req.body);
+    console.log("DEVICE TOKEN:", req.body.device_token);
+
+    if (req.body.login_type == "email") {
+      user = await user_service.getUser({
+        email: req.body.email,
+        otp: req.body.otp,
+      });
+
+      if (!user)
+        return response_service.badRequestResponse(res, "Invalid otp.");
+
+      token = await token_service.generateToken({
+        user_id: user.user_id,
+      });
+
+      await user_service.updateUser(
+        {
+          login_verification_status: true,
+          otp: 0,
+          device_token: req.body.device_token || "",
+        },
+        {
+          email: req.body.email,
+        }
+      );
+
+    } else if (req.body.login_type == "mobile") {
+      user = await user_service.getUser({
+        mobile_number: req.body.mobile_number,
+        otp: req.body.otp,
+      });
+
+      if (!user)
+        return response_service.badRequestResponse(res, "Invalid otp.");
+
+      token = await token_service.generateToken({
+        user_id: user.user_id,
+      });
+
+      await user_service.updateUser(
+        {
+          login_verification_status: true,
+          otp: 0,
+          device_token: req.body.device_token || "",
+        },
+        {
+          mobile_number: req.body.mobile_number,
+        }
+      );
+    }
+
+    return response_service.successResponse(
+      res,
+      "OTP verified successfully.",
+      {
+        user: removeExtraFields(user, [
+          "otp",
+          "login_verification_status",
+          "login_type",
+          "is_admin",
+          "device_token",
+        ]),
+        token,
+      }
+    );
   } catch (err: any) {
     logger.error("Error verifying OTP:", err);
     return response_service.internalServerErrorResponse(res, err.message);

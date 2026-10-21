@@ -7,7 +7,7 @@ const {
   Genre,
   Movie,
   MusicSinger,
-  Song,
+  song: Song,
   SubscribedUsers,
   User,
   History
@@ -93,7 +93,7 @@ export async function count(
           order: [[literal(`period`), "ASC"]],
         });
 
-        return result.map((row:any) => row.toJSON());
+        return result.map((row: any) => row.toJSON());
       case "songs":
         return await Song.findAll({
           attributes: [
@@ -102,7 +102,7 @@ export async function count(
           ],
           group: [fn("TO_CHAR", col("createdAt"), format)],
           order: [[literal(`period`), "ASC"]],
-        }).then((result:any) => result.map((row:any) => row.toJSON()));
+        }).then((result: any) => result.map((row: any) => row.toJSON()));
       case "albums":
         return await Album.findAll({
           attributes: [
@@ -111,7 +111,7 @@ export async function count(
           ],
           group: [fn("TO_CHAR", col("createdAt"), format)],
           order: [[literal(`period`), "ASC"]],
-        }).then((result:any) => result.map((row:any) => row.toJSON()));
+        }).then((result: any) => result.map((row: any) => row.toJSON()));
       case "artists":
         return await User.findAll({
           attributes: [
@@ -121,7 +121,7 @@ export async function count(
           where: { is_deleted: false, is_singer: true },
           group: [fn("TO_CHAR", col("createdAt"), format)],
           order: [[literal(`period`), "ASC"]],
-        }).then((result:any) => result.map((row:any) => row.toJSON()));
+        }).then((result: any) => result.map((row: any) => row.toJSON()));
       case "movies":
         return await Movie.findAll({
           attributes: [
@@ -171,7 +171,7 @@ async function getAllUsersList(
     const { rows: users, count: total } = await User.findAndCountAll({
       where: {
         is_deleted: false,
-        ...(user_name != "" && {
+        ...(user_name !== "" && {
           [Op.or]: [
             { full_name: { [Op.like]: `%${user_name}%` } },
             { username: { [Op.like]: `%${user_name}%` } },
@@ -179,16 +179,18 @@ async function getAllUsersList(
         }),
         ...where,
       },
-      ...(sort_order != "" &&
-        sort_by != "" && {
-          order: [[sort_by, sort_order]],
-        }),
+
+      order:
+        sort_by !== "" && sort_order !== ""
+          ? [[sort_by, sort_order]]
+          : [["user_id", "DESC"]],
+
       limit: pageSize,
       offset,
     });
 
     const cleanedUsers: IUser[] = await Promise.all(
-      users.map(async (user:any) => {
+      users.map(async (user: any) => {
         const cleanedUser = removeExtraFields(user.toJSON(), [
           "password",
           "otp",
@@ -231,15 +233,15 @@ async function usersByLogin() {
       group: ["login_type"],
       order: [[literal(`count`), "DESC"]],
     });
-    const data = result.map((row:any) => row.toJSON());
+    const data = result.map((row: any) => row.toJSON());
     let total = 0;
     await Promise.all(
-      data.map(async (user:any) => {
+      data.map(async (user: any) => {
         total += Number(user.count);
       })
     );
     await Promise.all(
-      data.map(async (user:any) => {
+      data.map(async (user: any) => {
         user.count_percentage = (Number(user.count) / total) * 100;
       })
     );
@@ -249,10 +251,20 @@ async function usersByLogin() {
   }
 }
 
+
 async function dashboardCountCards(
+
+
   entity: "users" | "songs" | "albums" | "earnings"
 ) {
   try {
+
+    console.log({
+      User,
+      Album,
+      Song,
+      SubscribedUsers,
+    });
     //  total, last month, growth %
     switch (entity) {
       case "users": {
@@ -310,11 +322,11 @@ async function dashboardCountCards(
           },
         });
         const total_earnings = total.reduce(
-          (acc:any, user: any) => acc + user.amount,
+          (acc: any, user: any) => acc + user.amount,
           0
         );
         const lastMonth_earnings = lastMonth.reduce(
-          (acc:any, user: any) => acc + user.amount,
+          (acc: any, user: any) => acc + user.amount,
           0
         );
         const growth =
@@ -398,10 +410,7 @@ async function getTotalSongs(): Promise<number> {
  */
 async function getTotalAlbums(): Promise<number> {
   try {
-    const count = await Album.count({
-      where: { is_deleted: false },
-    });
-    return count;
+    return await Album.count();
   } catch (err) {
     throw err;
   }

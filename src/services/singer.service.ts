@@ -9,10 +9,10 @@ const {
   singerGenre,
   song,
   History
-} =db;
+} = db;
 import { ISong } from "../types";
 import { user_service } from ".";
-import {Op} from 'sequelize';
+import { Op } from 'sequelize';
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -77,14 +77,14 @@ async function mySongs(
       ],
     });
     console.log(rows);
-    
+
     const data = await Promise.all(
-      rows?.map(async (record:any) => {
+      rows?.map(async (record: any) => {
         const songData = record.get({ plain: true });
         const favourites_count = await favorites.count({
           where: { song_id: songData.song.song_id },
         });
-        
+
         const listens_count = await History.count({
           where: { song_id: songData.song.song_id },
         });
@@ -173,7 +173,7 @@ async function setfavorite(userId: number, artistId: number): Promise<boolean> {
   }
 }
 
-async function getFavoriteArtists(
+async function getFavoriteArtistsold(
   userId: number,
   page: number = 1,
   limit: number = 10
@@ -201,7 +201,7 @@ async function getFavoriteArtists(
 
     // Resolve all artist details
     const artists = await Promise.all(
-      rows.map(async (row:any) => {
+      rows.map(async (row: any) => {
         const { artist_user_id } = row.toJSON();
         const songs_count = await mySongsCount(
           parseInt(artist_user_id)
@@ -212,6 +212,92 @@ async function getFavoriteArtists(
             [],
             ["user_id", "full_name", "profile_pic"]
           ),
+          songs_count,
+        };
+      })
+    );
+
+    return {
+      artists,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (err) {
+    console.error("Error in getFavoriteArtists:", err);
+    throw err;
+  }
+}
+
+async function getFavoriteArtists(
+  userId: number,
+  page: number = 1,
+  limit: number = 10
+): Promise<{
+  artists: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+} | null> {
+  try {
+    const offset = (page - 1) * limit;
+
+    // First get only favorite artists
+    const rows = await favoriteArtists.findAll({
+      where: {
+        user_id: userId,
+      },
+      attributes: ["artist_user_id"],
+    });
+
+    // Get only artists which are NOT deleted
+    const validArtistIds = await User.findAll({
+      where: {
+        user_id: rows.map((row: any) => row.artist_user_id),
+        is_deleted: false,
+        is_singer: true,
+      },
+      attributes: ["user_id"],
+    });
+
+    const validIds = new Set(
+      validArtistIds.map((artist: any) => artist.user_id)
+    );
+
+    // Remove deleted artists
+    const validRows = rows.filter((row: any) =>
+      validIds.has(row.artist_user_id)
+    );
+
+    // Correct total after removing deleted artists
+    const total = validRows.length;
+
+    // Apply pagination AFTER filtering deleted artists
+    const paginatedRows = validRows.slice(
+      offset,
+      offset + limit
+    );
+
+    const artists = await Promise.all(
+      paginatedRows.map(async (row: any) => {
+        const { artist_user_id } = row.toJSON();
+
+        const songs_count = await mySongsCount(
+          Number(artist_user_id)
+        );
+
+        const artist = await user_service.getUser(
+          {
+            user_id: artist_user_id.toString(),
+          },
+          [],
+          ["user_id", "full_name", "profile_pic"]
+        );
+
+        return {
+          ...artist,
           songs_count,
         };
       })
@@ -315,6 +401,12 @@ async function addGenreToArtist(genreId: number, artistId: number): Promise<bool
   }
 }
 
+export async function removeSongArtists(song_id: number) {
+  return await MusicSinger.destroy({
+    where: { song_id },
+  });
+}
+
 export default {
   addSongToArtist,
   addSong,
@@ -326,5 +418,6 @@ export default {
   setfavorite,
   getFavoriteArtists,
   searchFavoriteArtists,
-  addGenreToArtist
+  addGenreToArtist,
+  removeSongArtists,
 };
