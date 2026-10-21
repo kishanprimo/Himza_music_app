@@ -27,7 +27,8 @@ async function createAlbum(req: Request, res: Response) {
     //     res,
     //     "Only admins can create public albums."
     //   );
-    if (is_private == "true" && !req.user.user_id)
+    // is_private is a boolean after zod validation
+    if (is_private === true && !req.user.user_id)
       return response_service.badRequestResponse(
         res,
         "You cannot create private albums."
