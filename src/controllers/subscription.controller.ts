@@ -8,7 +8,7 @@ import {
 import db from "../models";
 
 const { SubscribedUsers, SunscriptionPlans, History, User } = db;
-import createOrder from "./paypal.controller";
+import createOrder, { verifyOrderPaid } from "./paypal.controller";
 
 // get all plans ===============================================================
 async function getAllPlans(req: Request, res: Response) {
@@ -129,7 +129,6 @@ async function subscribe(req: Request, res: Response) {
       ],
     });
 
-    console.info("User info !@!@12", user);
 
     if (!user) {
       return response_service.notFoundResponse(res, "User not found.");
@@ -162,6 +161,8 @@ async function subscribe(req: Request, res: Response) {
         email: user.email,
         name: user.full_name,
         amount: plan.price,
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
       });
       return response_service.successResponse(
         res,
@@ -203,22 +204,49 @@ async function afterPayment(req: Request, res: Response) {
     if (!plan) {
       return response_service.notFoundResponse(res, "Plan not found.");
     }
-    if (
-      req.body.payment_status == "failed" ||
-      req.body.payment_status == "pending"
-    ) {
-      return response_service.notFoundResponse(
+    const payment_method = req.body.payment_method;
+    // Store the PaymentIntent id (not the client secret) so reuse checks match either form.
+    const payment_reference = String(req.body.payment_reference).split("_secret_")[0];
+
+    if (await subscription_service.isPaymentReferenceUsed(payment_reference)) {
+      return response_service.badRequestResponse(
         res,
-        "Payment failed or pending."
+        "This payment has already been used."
       );
     }
+
+    // Never trust the client's payment_status: confirm with the provider.
+    let isPaid = false;
+    if (payment_method === "stripe") {
+      isPaid = await subscription_service.verifyStripePayment({
+        reference: payment_reference,
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
+        amount: plan.price,
+      });
+    } else if (payment_method === "paypal") {
+      const paid = await verifyOrderPaid(payment_reference);
+      isPaid =
+        !!paid &&
+        paid.currency === "USD" &&
+        Number(paid.amount) === Number(plan.price);
+    }
+
+    if (!isPaid) {
+      return response_service.badRequestResponse(
+        res,
+        "Payment not completed or does not match the plan."
+      );
+    }
+
     await subscription_service.subscribe({
       user_id: user.user_id,
       plan_id: subscription_plan_id,
       amount: plan.price,
       payment_date: new Date(),
-      payment_method: req.body.payment_method,
-      payment_status: req.body.payment_status,
+      payment_method,
+      payment_status: "completed",
+      payment_reference,
     });
 
     const subscription = await user_service.getUser(

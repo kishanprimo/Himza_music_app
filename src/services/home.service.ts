@@ -337,7 +337,6 @@ async function getBlock(
             "subtitle",
             "description",
           ],
-          raw: true,
         })
         : [];
 
@@ -357,7 +356,11 @@ async function getBlock(
       );
 
       const albumMap = new Map(
-        albums.map((album: any) => [Number(album.album_id), album])
+        // get({ plain: true }) keeps the model getters (thumbnail URL prefix).
+        albums.map((item: any) => {
+          const album = item.get({ plain: true });
+          return [Number(album.album_id), album];
+        })
       );
 
       data.push(
@@ -572,7 +575,6 @@ async function getBlock(
         ? await User.findAll({
           where: { user_id: { [Op.in]: paginatedIds } },
           attributes: ["user_id", "full_name", "profile_pic"],
-          raw: true,
         })
         : [];
 
@@ -612,7 +614,11 @@ async function getBlock(
       );
 
       const artistMap = new Map(
-        artists.map((artist: any) => [Number(artist.user_id), artist])
+        // get({ plain: true }) keeps the model getters (profile_pic URL prefix).
+        artists.map((item: any) => {
+          const artist = item.get({ plain: true });
+          return [Number(artist.user_id), artist];
+        })
       );
 
       data.push(

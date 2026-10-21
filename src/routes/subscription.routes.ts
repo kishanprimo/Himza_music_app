@@ -29,8 +29,11 @@ router.post(
   validateBody(
     z.object({
       plan_id: z.string().min(1, "plan_id is required."),
-      payment_status: z.enum(["completed", "failed", "pending"]),
-      payment_method: z.enum(["stripe", "paypal", "razorpay", "apple_iap"])
+      // Kept for older app builds; the server checks the real status with the provider.
+      payment_status: z.enum(["completed", "failed", "pending"]).optional(),
+      payment_method: z.enum(["stripe", "paypal"]),
+      // Stripe: PaymentIntent id or client secret. PayPal: order id.
+      payment_reference: z.string().min(1, "payment_reference is required."),
     })
   ),
   afterPayment

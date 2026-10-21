@@ -8,6 +8,7 @@ import {
   user_service,
 } from ".";
 import { and } from "sequelize";
+import { logger } from "../utils";
 
 async function addToSearchHistory(
   userId: number,
@@ -178,7 +179,7 @@ async function getSearchHistory(
             return { ...search, genre };
           }
         } catch (e) {
-          console.warn(
+          logger.warn(
             `Failed to enrich ${search.type} ID in search history:`,
             e,
           );
@@ -200,7 +201,7 @@ async function getSearchHistory(
       },
     };
   } catch (err) {
-    console.error("Error fetching search history:", err);
+    logger.error("Error fetching search history:", err);
     throw err;
   }
 }

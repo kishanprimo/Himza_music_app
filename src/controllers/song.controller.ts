@@ -254,7 +254,6 @@ async function getMySongs_old(req: Request, res: Response) {
     }
   } catch (err: any) {
     logger.error("Error fetching songs:", err);
-    console.log(err);
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
@@ -406,7 +405,6 @@ async function getMySongs(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error fetching songs:", err);
-    console.log(err);
 
     return response_service.internalServerErrorResponse(
       res,
@@ -727,7 +725,7 @@ export const searchDownloadedSongs = async (
       Pagination: result.Pagination,
     });
   } catch (error: any) {
-    console.error("Search Downloaded Songs Error:", error);
+    logger.error("Search Downloaded Songs Error:", error);
 
     return res.status(500).json({
       success: false,
@@ -800,7 +798,6 @@ async function getTrendingSongs(req: Request, res: Response) {
       songs,
     );
   } catch (err: any) {
-    console.log(err);
     logger.error("Error fetching trending songs:", err);
     return response_service.internalServerErrorResponse(res, err.message);
   }

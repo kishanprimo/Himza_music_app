@@ -2,6 +2,7 @@ import { sendPushNotification } from "../services/common/oneSignal.service";
 import { Request, Response } from "express";
 import db from "../models";
 import { generalResponse } from "../helpers/response.helper";
+import { logger } from "../utils";
 
 const { Broadcast_push_notification } = db;
 // 🔹 Types for request body
@@ -54,7 +55,7 @@ export const broadcastMessage = async (
       200
     );
   } catch (error: any) {
-    console.error("Error in broadcasting message:", error);
+    logger.error("Error in broadcasting message:", error);
     return generalResponse(
       res,
       {},
@@ -113,7 +114,7 @@ export const getBroadcastMessage = async (
       200
     );
   } catch (error: any) {
-    console.error("Error in retrieving broadcast messages:", error);
+    logger.error("Error in retrieving broadcast messages:", error);
     return generalResponse(
       res,
       {},

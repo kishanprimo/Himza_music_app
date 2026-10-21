@@ -3,16 +3,58 @@ import { Request, Response } from "express";
 import { logger } from "../utils";
 import { updateEnvVariables } from "../helpers/setEnv";
 
+// Fields that are safe to show without admin login (branding, public keys, login toggles).
+const PUBLIC_CONFIG_FIELDS = [
+  "config_id",
+  "logo_light",
+  "logo_dark",
+  "app_name",
+  "app_email",
+  "app_text",
+  "app_primary_color",
+  "app_secondary_color",
+  "app_ios_link",
+  "app_android_link",
+  "app_tell_a_friend_text",
+  "stripe_public",
+  "paypal_public",
+  "razor_public_key",
+  "one_signal_app_id",
+  "allow_login_by_email",
+  "allow_login_by_mobile",
+  "allow_login_by_google",
+  "allow_login_by_apple",
+  "email_title",
+  "copyright_text",
+  "email_banner",
+  "privacy_policy",
+  "terms_and_conditions",
+  "currency",
+  "mediaflow",
+];
+
 // get all config data ============================================
+// Full row (with secrets) only for a logged-in admin; public fields for everyone else.
 async function getConfig(req: Request, res: Response) {
   try {
     const config = await config_service.getConfig();
     if (!config)
       return response_service.notFoundResponse(res, "Config not found.");
+
+    const isAdmin = !!req.user?.admin_id;
+    const data = isAdmin
+      ? config
+      : Object.fromEntries(
+          PUBLIC_CONFIG_FIELDS.filter((key) => key in config).map((key) => [
+            key,
+            config[key],
+          ])
+        );
+
     return response_service.successResponse(
       res,
       "Config fetched successfully.",
-      config
+      data
     );
   } catch (err: any) {
     logger.error("Error fetching config:", err);

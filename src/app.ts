@@ -5,6 +5,7 @@ import bodyParser from "body-parser";
 import indexRoutes from "./routes/index.routes";
 import cors from "cors";
 import helmet from "helmet";
+import { logger } from "./utils";
 
 const app: Application = express();
 app.use(bodyParser.json({ limit: "10mb" }));
@@ -68,7 +69,7 @@ app.use((req: Request, res: Response) => {
 
 // Global Error Handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
+  logger.error("Unhandled request error:", err);
   res.status(500).json({
     success: false,
     message: "Internal server error",

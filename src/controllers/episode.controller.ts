@@ -71,6 +71,7 @@ import formatDuration from "../helpers/durationOfAudio";
 // }
 import { parseFile } from "music-metadata";
 import path from "path";
+import { logger } from "../utils";
 
 export async function addEpisode(req: Request, res: Response) {
   try {
@@ -115,7 +116,7 @@ export async function addEpisode(req: Request, res: Response) {
       duration: durationFormatted,
     });
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to add episode"
@@ -205,7 +206,7 @@ export async function editEpisode(req: Request, res: Response) {
       }
     );
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to update episode"

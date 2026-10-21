@@ -1,4 +1,5 @@
 import { authenticateAdmin } from "../middleware/auth.middleware";
+import { optionalAdminAuth } from "../middleware/optionalAuth.middleware";
 import { Router } from "express";
 import { Request, Response, NextFunction } from "express";
 
@@ -111,7 +112,7 @@ import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadc
 const router = Router();
 
 router.post("/login", validateBody(adminLoginSchema), verifyAdmin);
-router.get("/config", getConfig);
+router.get("/config", optionalAdminAuth, getConfig);
 
 router.use(authenticateAdmin);
 

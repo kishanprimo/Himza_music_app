@@ -13,9 +13,9 @@ const startServer = async (): Promise<void> => {
       await initializeDatabase();
       // setupAssociations();
       removeExpieredSubscriptions();
-      console.log("✅ DB synced and models ready.");
+      logger.info("DB synced and models ready.");
     } catch (err) {
-      console.error("❌ Sync failed:", err);
+      logger.error("Sync failed:", err);
     }
 
     logger.info("Connected to PostgreSQL successfully");
@@ -28,9 +28,7 @@ const startServer = async (): Promise<void> => {
     // });
 
     const server = app.listen(config.port, () => {
-      console.log(
-        `✅ Server running on network at ${config.port}`
-      );
+      logger.info(`Server running on port ${config.port}`);
 
        // 👉 Call seed function AFTER DB sync
     //  seedAdmin();
@@ -42,23 +40,27 @@ const startServer = async (): Promise<void> => {
     initializeSocketIO(server);
     logger.info("Socket.IO initialized successfully");
   } catch (error) {
-    console.error("❌ Sync failed:", error);
     logger.error("Failed to start server:", error);
     process.exit(1);
   }
 };
 
 // Handle uncaught exceptions and rejections
+// Wait for the file transport to flush so the crash reason is not lost.
+const exitAfterLogFlush = () => {
+  logger.on("finish", () => process.exit(1));
+  logger.end();
+  setTimeout(() => process.exit(1), 2000).unref();
+};
+
 process.on("uncaughtException", (error) => {
-  console.log("❌ Uncaught Exception:", error);
-  // logger.error("Uncaught Exception:", error);
-  process.exit(1);
+  logger.error("Uncaught Exception:", error);
+  exitAfterLogFlush();
 });
 
 process.on("unhandledRejection", (error) => {
-  console.log("❌ Unhandled Rejection:", error);
-  // logger.error("Unhandled Rejection:", error);
-  process.exit(1);
+  logger.error("Unhandled Rejection:", error);
+  exitAfterLogFlush();
 });
 
 startServer();

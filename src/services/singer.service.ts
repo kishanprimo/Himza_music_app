@@ -13,6 +13,7 @@ const {
 import { ISong } from "../types";
 import { user_service } from ".";
 import { Op, fn, col } from "sequelize";
+import { logger } from "../utils";
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -263,7 +264,7 @@ async function getFavoriteArtists(
       totalPages: Math.ceil(total / limit),
     };
   } catch (err) {
-    console.error("Error in getFavoriteArtists:", err);
+    logger.error("Error in getFavoriteArtists:", err);
     throw err;
   }
 }

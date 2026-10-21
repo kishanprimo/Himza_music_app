@@ -1,11 +1,13 @@
 import { IAlbum } from "../types";
 import  Album  from "../models";
+import { logger } from "../utils";
+import { config } from "../config";
 
 const fs = require('fs');
 const path = require('path');
 // const { Song } = require('../models/song'); // adjust path
 
-const BASE_URL = 'http://192.168.0.11:3000'; // replace with your actual base URL
+const BASE_URL = config.clientUrl;
 
 async function cleanThumbnails() {
   try {
@@ -37,11 +39,11 @@ async function cleanThumbnails() {
         }
 
       } else {
-        console.warn('File not found:', oldFullPath);
+        logger.warn('File not found:', oldFullPath);
       }
     }
   } catch (error) {
-    console.error('Error cleaning thumbnails:', error);
+    logger.error('Error cleaning thumbnails:', error);
   }
 }
 

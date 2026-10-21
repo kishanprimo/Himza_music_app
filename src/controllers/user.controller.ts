@@ -13,7 +13,6 @@ const { Album, MusicSinger, song, SubscribedUsers, SunscriptionPlans, User } =
 
 // get user ====================================================
 async function getUser(req: Request, res: Response) {
-  console.info("user id profile", req.user.user_id)
 
   try {
     const user = await user_service.getUser(
@@ -56,7 +55,6 @@ async function getUser(req: Request, res: Response) {
         },
       ]
     );
-    console.info("user @q3234", user)
 
 
     if (!user) return response_service.notFoundResponse(res, "User not found.");
@@ -73,7 +71,6 @@ async function getUser(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error retrieving user:", err);
-    console.error("Error in getting user deatil")
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }

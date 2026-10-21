@@ -15,6 +15,7 @@ const {
 import { fn, col, literal, QueryTypes } from "sequelize";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { Op } from "sequelize";
+import { logger } from "../utils";
 
 type Timeframe = "day" | "week" | "month" | "year" | "total";
 
@@ -490,7 +491,7 @@ async function getTotalEarnings(): Promise<number> {
     const total = result[0]?.total;
     return total ? parseFloat(String(total)) : 0;
   } catch (err) {
-    console.error("Error calculating total earnings:", err);
+    logger.error("Error calculating total earnings:", err);
     return 0;
   }
 }
@@ -569,16 +570,16 @@ async function getMonthwiseUserData(): Promise<any> {
       monthData[month] = 0;
     });
 
-    // Use raw SQL query for reliability
+    // Postgres: camelCase columns must be quoted, and MONTH()/YEAR() don't exist.
     const query = `
-      SELECT 
-        MONTH(createdAt) as month, 
-        COUNT(*) as count 
-      FROM users 
-      WHERE is_deleted = false 
-        AND YEAR(createdAt) = :year
-      GROUP BY MONTH(createdAt)
-      ORDER BY month ASC
+      SELECT
+        EXTRACT(MONTH FROM "createdAt")::int AS month,
+        COUNT(*)::int AS count
+      FROM users
+      WHERE is_deleted = false
+        AND EXTRACT(YEAR FROM "createdAt") = :year
+      GROUP BY 1
+      ORDER BY 1 ASC
     `;
 
     const results: any = await db.sequelize?.query(query, {
@@ -600,7 +601,7 @@ async function getMonthwiseUserData(): Promise<any> {
 
     return monthData;
   } catch (err) {
-    console.error("Error fetching monthwise data:", err);
+    logger.error("Error fetching monthwise data:", err);
     // Return default data on error
     const monthNames = [
       "January",
@@ -681,7 +682,7 @@ async function getLoginMethodBreakdown(): Promise<any> {
 
     return breakdown;
   } catch (err) {
-    console.error("Error fetching login breakdown:", err);
+    logger.error("Error fetching login breakdown:", err);
     return {
       email: { count: 0, percentage: 0 },
       mobile: { count: 0, percentage: 0 },

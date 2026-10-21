@@ -1,14 +1,15 @@
 import db from "../models";
+import { logger } from "../utils";
 
 // Test connection and sync models
 export const initializeDatabase = async () => {
   try {
-    console.log("✅ PostgreSQL connection established successfully.");
-
-    // Sync database (creates tables if they don't exist)
-    await db?.sequelize?.sync({ alter: true });
-    console.log("✅ Database synchronized successfully.");
+    // Add-only sync: creates missing tables, columns and indexes, but never drops or
+    // changes existing columns/constraints, so live data can't be lost on startup.
+    // Type changes or column removals must be done with a manual migration.
+    await db?.sequelize?.sync({ alter: { drop: false } });
+    logger.info("Database synchronized successfully.");
   } catch (err) {
-    console.error("❌ Unable to connect to the database:", err);
+    logger.error("Unable to connect to the database:", err);
   }
 };

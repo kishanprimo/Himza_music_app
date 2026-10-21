@@ -38,6 +38,8 @@ interface Config {
   MSG91_TEMPLATE_ID: string
   MSG91_SENDER_ID: string
   MSG91_API_ENDPOINT: string
+  GOOGLE_CLIENT_IDS: string
+  APPLE_CLIENT_IDS: string
 
 }
 
@@ -47,7 +49,8 @@ export const config: Config = {
   jwtSecret: process.env.JWT_SECRET || 'secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   socketPath: process.env.SOCKET_PATH || '/socket.io',
-  clientUrl: process.env.CLIENT_URL || 'http://192.168.0.28:3000',
+  // Base URL prepended to uploaded file paths. Must be set per environment.
+  clientUrl: process.env.CLIENT_URL || `http://localhost:${process.env.PORT || '3000'}`,
   oneSignalAppId: process.env.ONE_SIGNAL_APP_ID || '',
   oneSignalApiKey: process.env.ONE_SIGNAL_API_KEY || '',
   secret: process.env.SECRET || 'secret',
@@ -72,10 +75,14 @@ export const config: Config = {
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || "TWILIO_ACCOUNT_SID",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || "TWILIO_AUTH_TOKEN",
   TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER || "TWILIO_FROM_NUMBER",
-  MSG91_API_KEY: process.env.TWILIO_FROM_NUMBER || "TWILIO_FROM_NUMBER",
-  MSG91_TEMPLATE_ID: process.env.TWILIO_FROM_NUMBER || "TWILIO_FROM_NUMBER",
-  MSG91_SENDER_ID: process.env.TWILIO_FROM_NUMBER || "TWILIO_FROM_NUMBER",
+  MSG91_API_KEY: process.env.MSG91_API_KEY || "MSG91_API_KEY",
+  MSG91_TEMPLATE_ID: process.env.MSG91_TEMPLATE_ID || "MSG91_TEMPLATE_ID",
+  MSG91_SENDER_ID: process.env.MSG91_SENDER_ID || "MSG91_SENDER_ID",
   MSG91_API_ENDPOINT: process.env.MSG91_API_ENDPOINT || "https://api.msg91.com/api/v5/otp",
+  // Comma-separated OAuth client ids (Android, iOS, web). Social login is refused if empty.
+  GOOGLE_CLIENT_IDS: process.env.GOOGLE_CLIENT_IDS || "",
+  // Comma-separated Apple bundle id / Services id. Apple login is refused if empty.
+  APPLE_CLIENT_IDS: process.env.APPLE_CLIENT_IDS || "",
 };
 
 // Database configuration
