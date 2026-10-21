@@ -1,0 +1,69 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main1331
+
+jobs:
+  deploy:
+    name: Build & Deploy via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      # No --delete: files that only exist on the server (.env, uploads, logs) are never removed.
+      - name: Deploy to server via rsync
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --exclude='.git' --exclude='.github' --exclude='.env' --exclude='node_modules' --exclude='uploads' --exclude='logs'
+          path: ./
+          remote_path: /var/www/api-musicapp/
+          remote_host: ${{ secrets.SERVER_HOST }}
+          remote_user: ${{ secrets.SERVER_USER }}
+          remote_key: ${{ secrets.SERVER_SSH_KEY }}
+          remote_port: 22
+
+      - name: Install & restart on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd /var/www/api-musicapp
+
+            echo "=== Installing production dependencies ==="
+            npm ci --omit=dev
+
+            echo "=== Restarting app with PM2 ==="
+            # Recreate the process if it was started with another script (e.g. ts-node / npm start),
+            # because `pm2 restart` keeps the original command.
+            SCRIPT=$(pm2 jlist | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const p=JSON.parse(d).find(p=>p.name==="api-musicapp");console.log(p?p.pm2_env.pm_exec_path:"")})')
+            if [ "$SCRIPT" = "$PWD/dist/index.js" ]; then
+              pm2 restart api-musicapp --update-env
+            else
+              pm2 delete api-musicapp || true
+              pm2 start dist/index.js --name api-musicapp --cwd "$PWD"
+            fi
+            pm2 save
+
+            echo "=== Deployment complete! ==="
