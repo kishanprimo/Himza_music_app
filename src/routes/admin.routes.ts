@@ -308,7 +308,33 @@ router.post(
 );
 
 router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
-router.post("/update-album", validateBody(updateAlbumSchema), updateAlbum);
+// Admin panel sends song_id as a JSON string in multipart form data.
+const parseAlbumSongIds = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (typeof req.body.song_id === "string") {
+    try {
+      const parsed = JSON.parse(req.body.song_id);
+
+      if (Array.isArray(parsed)) {
+        req.body.song_id = parsed.map(String);
+      }
+    } catch {
+      // Invalid input will be rejected by Zod
+    }
+  }
+
+  next();
+};
+
+router.post(
+  "/update-album",
+  parseAlbumSongIds,
+  validateBody(updateAlbumSchema),
+  updateAlbum
+);
 router.post(
   "/add-Songs-to-album",
   validateBody(addOrRemoveSongsFromAlbumSchema),

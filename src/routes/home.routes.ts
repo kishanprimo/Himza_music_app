@@ -23,6 +23,11 @@ router.post('',optionalAuth, validateBody(
         }).optional()
     })
 ), getBlockById); // Assuming this is for getting albums by genre, you might want to change the controller function name
-router.get('/songs-by-genre', songsByGenre); // Assuming this is for getting songs by genre, you might want to change the controller function name
+// router.get('/songs-by-genre', songsByGenre); // Assuming this is for getting songs by genre, you might want to change the controller function name
+router.get(
+  "/songs-by-genre",
+  optionalAuth,
+  songsByGenre
+);
 
 export default router;

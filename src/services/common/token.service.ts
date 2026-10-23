@@ -12,10 +12,9 @@ const tokenExpiry = config.jwtExpiresIn || "1h"; // Default token expiry (e.g., 
 // Generate JWT token
 function generateToken(payload: Partial<IUser>, expiresIn = tokenExpiry) {
   try {
-    // const token = jwt.sign(payload, secretKey);
-    const token = jwt.sign(payload, secretKey, {
-      expiresIn,
-    });
+    // No expiry, same as production: the app and admin panel don't refresh tokens,
+    // so an expiring token would log everyone out.
+    const token = jwt.sign(payload, secretKey);
     // const token = jwt.sign(payload, secretKey, { expiresIn: '1m' });
 
     return token;
@@ -27,10 +26,9 @@ function generateToken(payload: Partial<IUser>, expiresIn = tokenExpiry) {
 
 function generateAdminToken(payload: Partial<IAdmin>, expiresIn = tokenExpiry) {
   try {
-    // const token = jwt.sign(payload, secretKey);
-    const token = jwt.sign(payload, secretKey, {
-      expiresIn,
-    });
+    // No expiry, same as production: the app and admin panel don't refresh tokens,
+    // so an expiring token would log everyone out.
+    const token = jwt.sign(payload, secretKey);
     // const token = jwt.sign(payload, secretKey, { expiresIn: '1m' });
 
     return token;

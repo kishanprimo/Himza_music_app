@@ -135,69 +135,119 @@ async function getSearchHistory(
                   {
                     model: User,
                     as: "singer",
-                    attributes: ["user_id", "full_name", "profile_pic"],
+                    attributes: [
+                      "user_id",
+                      "full_name",
+                      "profile_pic",
+                    ],
                   },
                 ],
               },
             ]);
-            let is_favorite = false;
-            let is_downloaded = false;
 
-            if (song) {
-              const favorite = await favorites.findOne({
-                where: { user_id: userId, song_id: song.song_id },
-              });
-
-              const downloaded = await Downloads.findOne({
-                where: { user_id: userId, song_id: song.song_id },
-              });
-
-              is_favorite = !!favorite;
-              is_downloaded = !!downloaded;
+            // Song nahi hai to entry remove
+            if (!song) {
+              return null;
             }
-            return { ...search, song, is_favorite, is_downloaded };
+
+            const [favorite, downloaded] = await Promise.all([
+              favorites.findOne({
+                where: {
+                  user_id: userId,
+                  song_id: song.song_id,
+                },
+              }),
+              Downloads.findOne({
+                where: {
+                  user_id: userId,
+                  song_id: song.song_id,
+                },
+              }),
+            ]);
+
+            return {
+              ...search,
+              song,
+              is_favorite: !!favorite,
+              is_downloaded: !!downloaded,
+            };
           }
+
           if (search.type === "artist") {
             const artist = await user_service.getUser(
               { user_id: search.artist_id },
               [],
-              ["user_id", "full_name", "profile_pic"],
+              ["user_id", "full_name", "profile_pic"]
             );
-            return { ...search, artist };
+
+            if (!artist) {
+              return null;
+            }
+
+            return {
+              ...search,
+              artist,
+            };
           }
+
           if (search.type === "album") {
             const album = await album_service.getAlbum(
               { album_id: search.album_id },
-              [],
+              []
             );
-            return { ...search, album };
+
+            if (!album) {
+              return null;
+            }
+
+            return {
+              ...search,
+              album,
+            };
           }
+
           if (search.type === "genre") {
-            const genre = await genre_category_service.getGenreById(
-              search.genre_id,
-            );
-            return { ...search, genre };
+            const genre =
+              await genre_category_service.getGenreById(
+                search.genre_id
+              );
+
+            if (!genre) {
+              return null;
+            }
+
+            return {
+              ...search,
+              genre,
+            };
           }
+
+          return search;
         } catch (e) {
           logger.warn(
             `Failed to enrich ${search.type} ID in search history:`,
-            e,
+            e
           );
-        }
 
-        // Fallback to raw entry if enrichment fails
-        return search;
-      }),
+          return null;
+        }
+      })
     );
 
+    // Remove unavailable records
+    rows = rows.filter(Boolean);
+
+    // Correct count
+    const validCount = rows.length;
+
     return {
-      count: searchHistorys.count,
+      count: validCount,
       rows,
       pagination: {
         current_page: page,
         records_per_page: limit,
-        total_records: searchHistorys.count,
-        total_pages: Math.ceil(searchHistorys.count / limit),
+        total_records: validCount,
+        total_pages: Math.ceil(validCount / limit),
       },
     };
   } catch (err) {

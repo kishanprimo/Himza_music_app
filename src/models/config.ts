@@ -236,12 +236,12 @@ module.exports = (sequelize: any, DataTypes: any) => {
       },
 
       privacy_policy: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true,
         defaultValue: "",
       },
       terms_and_conditions: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true,
         defaultValue: "",
       },

@@ -12,9 +12,9 @@ const {
   searchPlaylistHistory,
   favorites,
   Downloads,
-   History,
-   Playlist,
-   PlaylistSong,
+  History,
+  Playlist,
+  PlaylistSong,
 } = db;
 import { IAlbum, ISong, IPlaylist } from "../types";
 import { Sequelize, Order } from "sequelize";
@@ -285,6 +285,7 @@ async function isfavorite(userId: number, albumId: number): Promise<boolean> {
 }
 
 async function setfavorite(userId: number, albumId: number): Promise<boolean> {
+  console.log("setfavorite", userId, albumId, favoriteAlbums);
   try {
     const favorite = await favoriteAlbums.findOne({
       where: { user_id: userId, album_id: albumId },
@@ -361,12 +362,12 @@ async function getMyAlbums(
     // Add songs_count without extra DB queries
     const albums = rows.map((album: any) => {
       const rawAlbum = album.get({ plain: true });
-        const songsCount = rawAlbum.songs?.length || 0;
+      const songsCount = rawAlbum.songs?.length || 0;
 
-         delete rawAlbum.songs; 
+      delete rawAlbum.songs;
       return {
         ...rawAlbum,
-       songs_count: songsCount,
+        songs_count: songsCount,
       };
     });
 
@@ -773,6 +774,8 @@ async function searchFavoriteAlbums(
       order: [["createdAt", "DESC"]],
     });
 
+    console.log("rows", rows);
+
     if (!rows.length) return null;
 
     return {
@@ -791,7 +794,7 @@ async function deleteAlbum(albumId: number): Promise<number> {
   try {
     const result = await Album.destroy({ where: { album_id: albumId } });
     if (result === 0) return 0;
-      await AlbumSong.destroy({ where: { album_id: albumId } });
+    await AlbumSong.destroy({ where: { album_id: albumId } });
     return 1;
   } catch (err) {
     throw err;
@@ -841,7 +844,7 @@ async function getAlbumSongs(
 ) {
   const offset = (page - 1) * limit;
 
-    let album_favorite = false;
+  let album_favorite = false;
 
   if (user_id) {
     const fav = await favoriteAlbums.findOne({
@@ -895,7 +898,7 @@ async function getAlbumSongs(
   });
 
   return {
-    album_favorite, 
+    album_favorite,
     songs,
     total: count,
     page,
@@ -958,29 +961,29 @@ async function getPlaylistSongs(
     limit,
     offset,
     order: [["playlist_song_id", "DESC"]],
-   include: [
-  {
-    model: song,
-    as: "song",
-    attributes: ["song_id", "title", "thumbnail", "audio"],
     include: [
       {
-        model: favorites,
-        as: "downloadedBy",
-        attributes: [],
-        required: false,
-        where: user_id ? { user_id } : undefined,
-      },
-      {
-        model: Downloads,
-        as: "favoriteBy",
-        attributes: [],
-        required: false,
-        where: user_id ? { user_id } : undefined,
+        model: song,
+        as: "song",
+        attributes: ["song_id", "title", "thumbnail", "audio"],
+        include: [
+          {
+            model: favorites,
+            as: "downloadedBy",
+            attributes: [],
+            required: false,
+            where: user_id ? { user_id } : undefined,
+          },
+          {
+            model: Downloads,
+            as: "favoriteBy",
+            attributes: [],
+            required: false,
+            where: user_id ? { user_id } : undefined,
+          },
+        ],
       },
     ],
-  },
-],
   });
 
   const songs = rows.map((item: any) => {
@@ -1003,6 +1006,86 @@ async function getPlaylistSongs(
     limit,
     totalPages: Math.ceil(count / limit),
   };
+}
+
+async function linkSongsToAlbum(
+  album_id: string,
+  song_ids: string[]
+) {
+  // Remove duplicate IDs from request
+  const uniqueIds = [...new Set(song_ids.map(String))];
+
+  // Validate songs before modifying existing links
+  if (uniqueIds.length > 0) {
+    const existingSongs = await song.findAll({
+      where: {
+        song_id: {
+          [Op.in]: uniqueIds,
+        },
+      },
+      attributes: ["song_id"],
+    });
+
+    const existingIds = new Set(
+      existingSongs.map((item: any) => String(item.song_id))
+    );
+
+    const missingIds = uniqueIds.filter(
+      (id) => !existingIds.has(id)
+    );
+
+    if (missingIds.length > 0) {
+      throw new Error(`Song not found: ${missingIds.join(", ")}`);
+    }
+  }
+
+  // Empty array means remove ALL song links from this album
+  if (uniqueIds.length === 0) {
+    await AlbumSong.destroy({
+      where: { album_id },
+    });
+
+    return true;
+  }
+
+  // Remove old links that are not present in the new selection
+  await AlbumSong.destroy({
+    where: {
+      album_id,
+      song_id: {
+        [Op.notIn]: uniqueIds,
+      },
+    },
+  });
+
+  // Get links that already exist for this album
+  const existingLinks = await AlbumSong.findAll({
+    where: {
+      album_id,
+      song_id: {
+        [Op.in]: uniqueIds,
+      },
+    },
+    attributes: ["song_id"],
+  });
+
+  const linkedIds = new Set(
+    existingLinks.map((item: any) => String(item.song_id))
+  );
+
+  // Insert only missing links
+  const newLinks = uniqueIds
+    .filter((id) => !linkedIds.has(id))
+    .map((song_id) => ({
+      album_id,
+      song_id,
+    }));
+
+  if (newLinks.length > 0) {
+    await AlbumSong.bulkCreate(newLinks);
+  }
+
+  return true;
 }
 
 export default {
@@ -1032,4 +1115,5 @@ export default {
   getPlaylistSongs,
   deletePlaylist,
   getAlbumWithSongs,
+  linkSongsToAlbum,
 };

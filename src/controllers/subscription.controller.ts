@@ -6,6 +6,7 @@ import {
   user_service,
 } from "../services";
 import db from "../models";
+import { config } from "../config";
 
 const { SubscribedUsers, SunscriptionPlans, History, User } = db;
 import createOrder, { verifyOrderPaid } from "./paypal.controller";
@@ -205,49 +206,82 @@ async function afterPayment(req: Request, res: Response) {
       return response_service.notFoundResponse(res, "Plan not found.");
     }
     const payment_method = req.body.payment_method;
-    // Store the PaymentIntent id (not the client secret) so reuse checks match either form.
-    const payment_reference = String(req.body.payment_reference).split("_secret_")[0];
+    const canVerify =
+      !!req.body.payment_reference &&
+      (payment_method === "stripe" || payment_method === "paypal");
 
-    if (await subscription_service.isPaymentReferenceUsed(payment_reference)) {
-      return response_service.badRequestResponse(
-        res,
-        "This payment has already been used."
-      );
-    }
-
-    // Never trust the client's payment_status: confirm with the provider.
-    let isPaid = false;
-    if (payment_method === "stripe") {
-      isPaid = await subscription_service.verifyStripePayment({
-        reference: payment_reference,
+    if (!canVerify) {
+      // Older app builds (and apple_iap / razorpay) only report payment_status.
+      // Same behaviour as production until ALLOW_LEGACY_PAYMENT_CONFIRM is "false".
+      if (config.ALLOW_LEGACY_PAYMENT_CONFIRM == "false") {
+        return response_service.badRequestResponse(
+          res,
+          "payment_reference is required."
+        );
+      }
+      if (
+        !req.body.payment_status ||
+        req.body.payment_status == "failed" ||
+        req.body.payment_status == "pending"
+      ) {
+        return response_service.notFoundResponse(
+          res,
+          "Payment failed or pending."
+        );
+      }
+      await subscription_service.subscribe({
         user_id: user.user_id,
         plan_id: subscription_plan_id,
         amount: plan.price,
+        payment_date: new Date(),
+        payment_method,
+        payment_status: req.body.payment_status,
       });
-    } else if (payment_method === "paypal") {
-      const paid = await verifyOrderPaid(payment_reference);
-      isPaid =
-        !!paid &&
-        paid.currency === "USD" &&
-        Number(paid.amount) === Number(plan.price);
-    }
+    } else {
+      // Store the PaymentIntent id (not the client secret) so reuse checks match either form.
+      const payment_reference = String(req.body.payment_reference).split("_secret_")[0];
 
-    if (!isPaid) {
-      return response_service.badRequestResponse(
-        res,
-        "Payment not completed or does not match the plan."
-      );
-    }
+      if (await subscription_service.isPaymentReferenceUsed(payment_reference)) {
+        return response_service.badRequestResponse(
+          res,
+          "This payment has already been used."
+        );
+      }
 
-    await subscription_service.subscribe({
-      user_id: user.user_id,
-      plan_id: subscription_plan_id,
-      amount: plan.price,
-      payment_date: new Date(),
-      payment_method,
-      payment_status: "completed",
-      payment_reference,
-    });
+      // Never trust the client's payment_status: confirm with the provider.
+      let isPaid = false;
+      if (payment_method === "stripe") {
+        isPaid = await subscription_service.verifyStripePayment({
+          reference: payment_reference,
+          user_id: user.user_id,
+          plan_id: subscription_plan_id,
+          amount: plan.price,
+        });
+      } else {
+        const paid = await verifyOrderPaid(payment_reference);
+        isPaid =
+          !!paid &&
+          paid.currency === "USD" &&
+          Number(paid.amount) === Number(plan.price);
+      }
+
+      if (!isPaid) {
+        return response_service.badRequestResponse(
+          res,
+          "Payment not completed or does not match the plan."
+        );
+      }
+
+      await subscription_service.subscribe({
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
+        amount: plan.price,
+        payment_date: new Date(),
+        payment_method,
+        payment_status: "completed",
+        payment_reference,
+      });
+    }
 
     const subscription = await user_service.getUser(
       {

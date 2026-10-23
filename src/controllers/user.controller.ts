@@ -83,14 +83,19 @@ async function getUser(req: Request, res: Response) {
  * @returns A success response with updated user data or an error response.
  */
 // update user ==========================================
+// Profile fields a user may change. Unknown keys (e.g. user_id, is_admin) are
+// dropped, not rejected, so existing app builds keep working.
 const updateProfileSchema = z.object({
-  full_name: z.string().trim().min(1).optional(),
-  username: z.string().trim().min(1).optional(),
+  full_name: z.string().optional(),
+  username: z.string().optional(),
   gender: z.string().optional(),
   dob: z.string().optional(),
-  email: z.string().trim().email().optional(),
+  email: z.string().optional(),
+  mobile_number: z.string().optional(),
+  country_code: z.string().optional(),
+  description: z.string().optional(),
   avatar_id: z.coerce.number().int().positive().optional(),
-}).strict();
+});
 
 async function updateUserold(req: Request, res: Response) {
   try {
@@ -216,6 +221,9 @@ async function updateUser(req: Request, res: Response) {
       gender: validatedData.gender,
       dob: validatedData.dob,
       email: validatedData.email,
+      mobile_number: validatedData.mobile_number,
+      country_code: validatedData.country_code,
+      description: validatedData.description,
     };
 
     // Remove fields not provided in the request.
@@ -232,38 +240,19 @@ async function updateUser(req: Request, res: Response) {
     } else if (validatedData.avatar_id !== undefined) {
       const avatar = await getAvatar(validatedData.avatar_id);
 
-      if (!avatar) {
-        return response_service.badRequestResponse(
-          res,
-          "Invalid avatar"
-        );
+      // Unknown avatar: keep the current picture (production behaviour).
+      if (avatar) {
+        newProfilePic = avatar.path.replace(config.clientUrl, "");
       }
-
-      newProfilePic = avatar.path.replace(config.clientUrl, "");
     }
 
     if (newProfilePic !== undefined) {
       updateData.profile_pic = newProfilePic;
     }
 
-    // Do not update the database if there are no editable fields.
-    if (Object.keys(updateData).length === 0) {
-      return response_service.badRequestResponse(
-        res,
-        "No valid profile fields provided"
-      );
-    }
-
-    const updatedUser = await user_service.updateUser(
-      updateData,
-      { user_id: userId }
-    );
-
-    if (!updatedUser) {
-      return response_service.badRequestResponse(
-        res,
-        "User could not be updated"
-      );
+    // Nothing to change: return the current profile, as production does.
+    if (Object.keys(updateData).length > 0) {
+      await user_service.updateUser(updateData, { user_id: userId });
     }
 
     // Delete old profile picture only after the update succeeds.
@@ -320,6 +309,15 @@ async function updateUser(req: Request, res: Response) {
     logger.error("Error updating user:", err);
 
     if (err.parent?.code === "23505") {
+      // e.g. "Key (email)=(test@example.com) already exists"
+      const match = (err.parent?.detail || "").match(/Key \(([^)]+)\)=/);
+      if (match) {
+        const field = match[1];
+        return response_service.conflictResponse(
+          res,
+          `${field.charAt(0).toUpperCase() + field.slice(1)} is already in use.`
+        );
+      }
       return response_service.conflictResponse(
         res,
         "This value is already in use"

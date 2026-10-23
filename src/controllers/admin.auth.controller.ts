@@ -4,7 +4,6 @@ import { IAdmin } from "../types";
 import tokenService from "../services/common/token.service";
 import removeExtraFields from "../services/common/removeExtraFields.service";
 import { logger } from "../utils";
-import { comparePassword } from "../services/common/password.service";
 
 export async function verifyAdmin(req: Request, res: Response) {
   try {
@@ -68,9 +67,10 @@ export async function changePassword(req: Request, res: Response) {
       );
     }
 
-    const isPasswordValid = await comparePassword(
-      data.previous_password ?? "",
-      admin.password ?? ""
+    const isPasswordValid = await admin_service.checkAdminPassword(
+      admin.admin_id,
+      String(data.previous_password ?? ""),
+      String(admin.password ?? "")
     );
 
     if (!isPasswordValid) {

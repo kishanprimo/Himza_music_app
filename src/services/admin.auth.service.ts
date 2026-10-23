@@ -30,6 +30,26 @@ async function getAdmin(data: Partial<IAdmin>): Promise<IAdmin | null> {
 //   }
 // }
 
+const BCRYPT_HASH = /^\$2[aby]\$\d{2}\$/;
+
+// Production admins may still have plain-text passwords (stored before hashing was
+// added). Accept those once and replace them with a bcrypt hash.
+async function checkAdminPassword(
+  admin_id: number | string,
+  password: string,
+  stored: string
+): Promise<boolean> {
+  if (BCRYPT_HASH.test(stored)) return comparePassword(password, stored);
+
+  if (!stored || String(password) !== stored) return false;
+
+  await Admin.update(
+    { password: await hashPassword(String(password)) },
+    { where: { admin_id } }
+  );
+  return true;
+}
+
 async function verifyAdmin(data: Partial<IAdmin>): Promise<IAdmin | null> {
   const admin = await Admin.findOne({
     where: { email: data.email },
@@ -39,9 +59,10 @@ async function verifyAdmin(data: Partial<IAdmin>): Promise<IAdmin | null> {
 
   const adminData = admin.toJSON() as IAdmin;
 
-  const isPasswordValid = await comparePassword(
-    data.password ?? "",
-    adminData.password ?? ""
+  const isPasswordValid = await checkAdminPassword(
+    adminData.admin_id,
+    String(data.password ?? ""),
+    String(adminData.password ?? "")
   );
 
   if (!isPasswordValid) return null;
@@ -100,4 +121,4 @@ async function changePassword(
   return rows[0].toJSON() as IAdmin;
 }
 
-export default { getAdmin, verifyAdmin, updateAdmin, changePassword };
+export default { getAdmin, verifyAdmin, updateAdmin, changePassword, checkAdminPassword };

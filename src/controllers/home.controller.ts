@@ -4,10 +4,24 @@ import { Request, Response } from "express";
 
 async function songsByGenre(req: Request, res: Response) {
   try {
-    const songs = await home_service.getAllSongsByGenre(req.body.page, req.body.limit, req.user.user_id);
+    const userId = req.user?.user_id || 0;
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    const songs = await home_service.getAllSongsByGenre(
+      page,
+      limit,
+      userId
+    );
+
     if (!songs || songs.length === 0) {
-      return response_service.notFoundResponse(res, "No songs found.");
+      return response_service.notFoundResponse(
+        res,
+        "No songs found."
+      );
     }
+
     return response_service.successResponse(
       res,
       "Songs retrieved successfully.",
@@ -15,7 +29,11 @@ async function songsByGenre(req: Request, res: Response) {
     );
   } catch (err: any) {
     logger.error("Error retrieving songs:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
+
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
   }
 }
 
@@ -34,10 +52,15 @@ async function createBlock(req: Request, res: Response) {
 async function updateBlock(req: Request, res: Response) {
   try {
 
+    console.log("========== UPDATE BLOCK REQUEST ==========");
+    console.log("REQ BODY:", req.body);
+
     const block = await home_service.updateBlock(
       req.body,
       parseInt(req.body.block_id)
     );
+
+    console.log("UPDATED BLOCK:", block);
 
     if (!block) {
       return response_service.notFoundResponse(

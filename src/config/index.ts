@@ -40,6 +40,8 @@ interface Config {
   MSG91_API_ENDPOINT: string
   GOOGLE_CLIENT_IDS: string
   APPLE_CLIENT_IDS: string
+  ALLOW_LEGACY_SOCIAL_LOGIN: string
+  ALLOW_LEGACY_PAYMENT_CONFIRM: string
 
 }
 
@@ -83,6 +85,12 @@ export const config: Config = {
   GOOGLE_CLIENT_IDS: process.env.GOOGLE_CLIENT_IDS || "",
   // Comma-separated Apple bundle id / Services id. Apple login is refused if empty.
   APPLE_CLIENT_IDS: process.env.APPLE_CLIENT_IDS || "",
+  // Older app builds log in with only an email (no id_token). Set to "false" once
+  // every app version in use sends id_token.
+  ALLOW_LEGACY_SOCIAL_LOGIN: process.env.ALLOW_LEGACY_SOCIAL_LOGIN || "true",
+  // Older app builds confirm a purchase with payment_status only (no payment_reference).
+  // Set to "false" once every app version in use sends payment_reference.
+  ALLOW_LEGACY_PAYMENT_CONFIRM: process.env.ALLOW_LEGACY_PAYMENT_CONFIRM || "true",
 };
 
 // Database configuration

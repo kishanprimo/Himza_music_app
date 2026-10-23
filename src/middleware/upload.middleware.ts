@@ -42,21 +42,22 @@ const MB = 1024 * 1024;
 type FileRule = { exts: string[]; mimePrefixes: string[]; maxBytes: number };
 
 const IMAGE: FileRule = {
-  exts: [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"],
+  exts: [".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".heic", ".heif", ".avif", ".bmp"],
   mimePrefixes: ["image/"],
-  maxBytes: 10 * MB,
+  // Production had no size limit; keep these generous so existing uploads still work.
+  maxBytes: 50 * MB,
 };
 // Logos may be SVG; only admins can upload them.
 const LOGO: FileRule = { ...IMAGE, exts: [...IMAGE.exts, ".svg"] };
 const AUDIO: FileRule = {
-  exts: [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"],
-  mimePrefixes: ["audio/", "video/mp4"], // some devices label .m4a as video/mp4
-  maxBytes: 100 * MB,
+  exts: [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".flac", ".mpeg", ".mpga", ".wma", ".aiff", ".aif", ".amr", ".mp4"],
+  mimePrefixes: ["audio/", "video/mp4", "video/mpeg"], // some devices label audio as video/*
+  maxBytes: 1024 * MB,
 };
 const VIDEO: FileRule = {
-  exts: [".mp4", ".webm", ".ogg", ".mov"],
+  exts: [".mp4", ".webm", ".ogg", ".mov", ".m4v", ".mkv", ".avi", ".3gp"],
   mimePrefixes: ["video/"],
-  maxBytes: 200 * MB,
+  maxBytes: 2048 * MB,
 };
 
 const FIELD_RULES: Record<string, FileRule> = {

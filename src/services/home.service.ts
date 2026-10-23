@@ -573,7 +573,8 @@ async function getBlock(
 
       const artists = paginatedIds.length
         ? await User.findAll({
-          where: { user_id: { [Op.in]: paginatedIds } },
+          // Same filter as user_service.getUser: deleted artists are not shown.
+          where: { user_id: { [Op.in]: paginatedIds }, is_deleted: false },
           attributes: ["user_id", "full_name", "profile_pic"],
         })
         : [];
@@ -652,7 +653,7 @@ async function getBlock(
       artist_count,
       is_visible: block.is_visible,
       order_id: block.order_id,
-      data: data.sort(() => Math.random() - 0.5),
+      data: data,
       pagination: {
         page: parseInt(page.toString()),
         pageSize: parseInt(

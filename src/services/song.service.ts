@@ -721,7 +721,17 @@ async function getAdminAllSongs(
           ? {
             [Op.or]: [
               { title: { [Op.iLike]: `%${search}%` } }, // song title match
-              { "$artists.singer.full_name$": { [Op.iLike]: `%${search}%` } }, // artist name match
+              // Search by singer name
+              sequelize.literal(`
+              EXISTS (
+                SELECT 1
+                FROM "music_singers" AS ms
+                INNER JOIN "users" AS u
+                  ON u."user_id" = ms."user_id"
+                WHERE ms."song_id" = "song"."song_id"
+                  AND u."full_name" ILIKE '%${search.replace(/'/g, "''")}%'
+              )
+            `),
             ],
           }
           : {}),

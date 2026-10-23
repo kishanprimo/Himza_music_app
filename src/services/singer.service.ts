@@ -225,32 +225,61 @@ async function getFavoriteArtists(
 } | null> {
   try {
     const offset = (page - 1) * limit;
-    // Count total favorite artists for pagination
-    const total = await favoriteArtists.count({
-      where: { user_id: userId },
-    });
 
-    // Fetch artist_user_ids
+    // First get only favorite artists
     const rows = await favoriteArtists.findAll({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+      },
       attributes: ["artist_user_id"],
-      limit,
-      offset,
     });
 
-    // Resolve all artist details
+    // Get only artists which are NOT deleted
+    const validArtistIds = await User.findAll({
+      where: {
+        user_id: rows.map((row: any) => row.artist_user_id),
+        is_deleted: false,
+        is_singer: true,
+      },
+      attributes: ["user_id"],
+    });
+
+    const validIds = new Set(
+      validArtistIds.map((artist: any) => artist.user_id)
+    );
+
+    // Remove deleted artists
+    const validRows = rows.filter((row: any) =>
+      validIds.has(row.artist_user_id)
+    );
+
+    // Correct total after removing deleted artists
+    const total = validRows.length;
+
+    // Apply pagination AFTER filtering deleted artists
+    const paginatedRows = validRows.slice(
+      offset,
+      offset + limit
+    );
+
     const artists = await Promise.all(
-      rows.map(async (row: any) => {
+      paginatedRows.map(async (row: any) => {
         const { artist_user_id } = row.toJSON();
+
         const songs_count = await mySongsCount(
-          parseInt(artist_user_id)
+          Number(artist_user_id)
         );
+
+        const artist = await user_service.getUser(
+          {
+            user_id: artist_user_id.toString(),
+          },
+          [],
+          ["user_id", "full_name", "profile_pic"]
+        );
+
         return {
-          ...await user_service.getUser(
-            { user_id: artist_user_id.toString() },
-            [],
-            ["user_id", "full_name", "profile_pic"]
-          ),
+          ...artist,
           songs_count,
         };
       })

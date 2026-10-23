@@ -18,7 +18,7 @@ const {
 
 // create album =============================================
 async function createAlbum(req: Request, res: Response) {
-  
+
   try {
     const user = req.user;
     const is_private = req.body.is_private;
@@ -27,8 +27,7 @@ async function createAlbum(req: Request, res: Response) {
     //     res,
     //     "Only admins can create public albums."
     //   );
-    // is_private is a boolean after zod validation
-    if (is_private === true && !req.user.user_id)
+    if (is_private == "true" && !req.user.user_id)
       return response_service.badRequestResponse(
         res,
         "You cannot create private albums."
@@ -134,48 +133,29 @@ async function addSongsToAlbum(req: Request, res: Response) {
   try {
     let user = req.user;
     let album;
-    if (user.user_id) {
-      album = await album_service.getAlbum(
+    album = await album_service.getAlbum(
+      { album_id: req.body.album_id },
+      [
         {
-          album_id: req.body.album_id,
-          user_id: req.user.user_id,
-          is_private: true,
+          model: AlbumSong,
+          as: "songs",
+          include: [
+            {
+              model: song,
+              as: "song",
+              attributes: ["song_id"],
+            },
+          ],
         },
-        [
-          {
-            model: AlbumSong,
-            as: "songs",
-            include: [
-              {
-                model: song,
-                as: "song",
-                attributes: ["song_id"],
-              },
-            ],
-          },
-        ]
-      );
-    } else {
-      album = await album_service.getAlbum(
-        { album_id: req.body.album_id, is_private: false },
-        [
-          {
-            model: AlbumSong,
-            as: "songs",
-            include: [
-              {
-                model: song,
-                as: "song",
-                attributes: ["song_id"],
-              },
-            ],
-          },
-        ]
+      ]
+    );
+
+    if (!album) {
+      return response_service.badRequestResponse(
+        res,
+        "Album not found."
       );
     }
-
-    if (!album)
-      return response_service.badRequestResponse(res, "Album not found.");
     let existing_songs = album.songs?.map((song: any) =>
       song.song_id.toString()
     );
@@ -217,7 +197,6 @@ async function addSongsToAlbum(req: Request, res: Response) {
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
-
 async function addSongsToPlaylist(req: Request, res: Response) {
   try {
     let user = req.user;
@@ -264,30 +243,30 @@ async function addSongsToPlaylist(req: Request, res: Response) {
     }
 
     if (!playlist)
-  return response_service.badRequestResponse(res, "Playlist not found.");
+      return response_service.badRequestResponse(res, "Playlist not found.");
 
-let songs = req.body.songIds || req.body.song_ids;
+    let songs = req.body.songIds || req.body.song_ids;
 
-// check duplicate songs
-let existing_songs =
-  playlist.songs?.filter((s: any) => songs.includes(s.song_id.toString())) || [];
+    // check duplicate songs
+    let existing_songs =
+      playlist.songs?.filter((s: any) => songs.includes(s.song_id.toString())) || [];
 
-if (existing_songs.length > 0)
-  return response_service.badRequestResponse(
-    res,
-    `Song is already in the "${playlist.title}".`
-  );
+    if (existing_songs.length > 0)
+      return response_service.badRequestResponse(
+        res,
+        `Song is already in the "${playlist.title}".`
+      );
 
-const addedSongs = await album_service.addSongsToPlaylist(
-  songs,
-  req.body.playlist_id
-);
+    const addedSongs = await album_service.addSongsToPlaylist(
+      songs,
+      req.body.playlist_id
+    );
 
-if (!addedSongs)
-  return response_service.badRequestResponse(
-    res,
-    "Failed to add songs to playlist."
-  );
+    if (!addedSongs)
+      return response_service.badRequestResponse(
+        res,
+        "Failed to add songs to playlist."
+      );
 
     return response_service.successResponse(
       res,
@@ -313,7 +292,6 @@ if (!addedSongs)
 
 // remove song from album ==================================================
 async function removeSongsFromAlbum(req: Request, res: Response) {
-
   try {
     let user = req.user;
     let album;
@@ -332,7 +310,7 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
     songs = await album_service.removeSongFromAlbum(songs, req.body.album_id);
 
     if (songs && songs[0] == 0)
-    
+
       return response_service.badRequestResponse(
         res,
         "Failed to remove songs from album."
@@ -417,6 +395,7 @@ async function removeSongsFromPlaylist(req: Request, res: Response) {
 
 // search in playlist ================================================
 export async function searchPlaylist(req: Request, res: Response) {
+
   try {
     const userId = req.user?.user_id;
 
@@ -556,7 +535,7 @@ export async function getPlaylistSearchHistory(
 }
 
 // update album ====================================================
-async function updateAlbum(req: Request, res: Response) {
+async function updateAlbumold(req: Request, res: Response) {
   try {
     let album = await album_service.getAlbum({ album_id: req.body.album_id });
     if (!album)
@@ -615,6 +594,123 @@ async function updateAlbum(req: Request, res: Response) {
   } catch (err: any) {
     logger.error("Error updating album:", err);
     return response_service.internalServerErrorResponse(res, err.message);
+  }
+}
+
+async function updateAlbum(req: Request, res: Response) {
+  try {
+    const { album_id, song_id } = req.body;
+
+    let album = await album_service.getAlbum({ album_id });
+
+    if (!album) {
+      return response_service.badRequestResponse(
+        res,
+        "Album not found."
+      );
+    }
+
+    if (album.is_private && req.user.user_id) {
+      return response_service.badRequestResponse(res, "");
+    }
+
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+
+    let del_album;
+
+    if (files?.["album_thumbnail"]) {
+      del_album = album.thumbnail;
+    }
+
+    // Update album details only when provided
+    const album_data: any = {
+      ...req.body,
+    };
+
+    // Do not save song_id in the Album table
+    delete album_data.song_id;
+
+    // Preserve the existing thumbnail when no new file is uploaded
+    if (files?.["album_thumbnail"]?.[0]) {
+      album_data.thumbnail =
+        files["album_thumbnail"][0].path;
+    }
+
+    album = await album_service.updateAlbum(
+      album_data,
+      { album_id }
+    );
+
+    if (!album) {
+      return response_service.badRequestResponse(
+        res,
+        "Failed to update album."
+      );
+    }
+
+    // Link song with album through AlbumSong
+    if (song_id && song_id.length > 0) {
+      await album_service.linkSongsToAlbum(
+        album_id,
+        song_id
+      );
+    }
+
+    // Fetch updated album with songs and genre
+    album = await album_service.getAlbum(
+      { album_id },
+      [
+        {
+          model: AlbumSong,
+          as: "songs",
+          include: [
+            {
+              model: song,
+              as: "song",
+            },
+          ],
+        },
+        {
+          model: Genre,
+          as: "albumGenre",
+        },
+      ]
+    );
+
+    if (del_album) {
+      const del_album_path = del_album.replace(
+        config.clientUrl,
+        ""
+      );
+
+      if (fs.existsSync(del_album_path)) {
+        fs.unlinkSync(del_album_path);
+      }
+    }
+
+    return response_service.successResponse(
+      res,
+      song_id?.length
+        ? "Album updated and songs linked successfully."
+        : "Album updated successfully.",
+      album
+    );
+  } catch (err: any) {
+    logger.error("Error updating album:", err);
+
+    if (err.message === "Song not found.") {
+      return response_service.badRequestResponse(
+        res,
+        err.message
+      );
+    }
+
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message
+    );
   }
 }
 
@@ -757,7 +853,7 @@ async function setfavorite(req: Request, res: Response) {
 async function getMyAlbums(req: Request, res: Response) {
   try {
     const user = req.user;
-    const albums = await album_service.getMyAlbums(user.user_id,req.body.page,
+    const albums = await album_service.getMyAlbums(user.user_id, req.body.page,
       req.body.limit);
     if (!albums)
       return response_service.notFoundResponse(res, "Albums not found.");
@@ -825,7 +921,7 @@ async function getFavoriteAlbums(req: Request, res: Response) {
 // search from favorite album list ========================================
 // search favorite albums =============================================
 async function searchFavoriteAlbums(req: Request, res: Response) {
-  
+
   try {
     const user = req.user;
 
@@ -963,6 +1059,10 @@ async function getPlaylistSongs(req: Request, res: Response) {
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
+
+
+
+
 
 export {
   createAlbum,

@@ -95,18 +95,29 @@ async function register(req: Request, res: Response) {
         );
       }
 
-      // Take the email only from a verified Google/Apple ID token, never from the request body.
+      // Take the email from a verified Google/Apple ID token when the app sends one.
+      // Older app builds send only the email; they are accepted while
+      // ALLOW_LEGACY_SOCIAL_LOGIN is "true".
       let email: string;
-      try {
-        email = await socialAuthService.verifySocialIdToken(
-          req.body.login_type,
-          req.body.id_token
-        );
-      } catch (err: any) {
-        logger.warn(`Rejected ${req.body.login_type} login: ${err.message}`);
-        return response_service.unauthorizedResponse(
+      if (req.body.id_token) {
+        try {
+          email = await socialAuthService.verifySocialIdToken(
+            req.body.login_type,
+            req.body.id_token
+          );
+        } catch (err: any) {
+          logger.warn(`Rejected ${req.body.login_type} login: ${err.message}`);
+          return response_service.unauthorizedResponse(
+            res,
+            "Invalid or expired login token."
+          );
+        }
+      } else if (config.ALLOW_LEGACY_SOCIAL_LOGIN != "false" && req.body.email) {
+        email = req.body.email;
+      } else {
+        return response_service.badRequestResponse(
           res,
-          "Invalid or expired login token."
+          "id_token is required for google and apple login"
         );
       }
 
@@ -126,6 +137,17 @@ async function register(req: Request, res: Response) {
       ]);
 
       if (user) {
+        if (req.body.device_token) {
+          await user_service.updateUser(
+            {
+              device_token: req.body.device_token,
+            },
+            {
+              user_id: user.user_id,
+            }
+          );
+        }
+
         const token = await token_service.generateToken({
           user_id: user.user_id,
         });
@@ -146,9 +168,9 @@ async function register(req: Request, res: Response) {
         );
       } else {
         let user = await user_service.createUser({
+          ...req.body,
           email,
-          login_type: req.body.login_type,
-        } as any);
+        });
         const token = await token_service.generateToken({
           user_id: user?.user_id,
         });
@@ -218,7 +240,10 @@ async function verifyOtp(req: Request, res: Response) {
         return response_service.badRequestResponse(res, "Invalid otp.");
       token = await token_service.generateToken({ user_id: user.user_id });
       await user_service.updateUser(
-        { login_verification_status: true },
+        {
+          login_verification_status: true,
+          device_token: req.body.device_token || "",
+        },
         { email: req.body.email }
       );
     } else if (req.body.login_type == "mobile") {
@@ -233,7 +258,10 @@ async function verifyOtp(req: Request, res: Response) {
         return response_service.badRequestResponse(res, "Invalid otp.");
       token = await token_service.generateToken({ user_id: user.user_id });
       await user_service.updateUser(
-        { login_verification_status: true },
+        {
+          login_verification_status: true,
+          device_token: req.body.device_token || "",
+        },
         { mobile_number: req.body.mobile_number }
       );
     }
