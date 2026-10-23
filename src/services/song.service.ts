@@ -478,7 +478,6 @@ async function getAllSongs(
     if (excludeSongIds.length > 0) {
       whereClause.song_id = { [Op.notIn]: excludeSongIds };
     }
-    console.log(search);
 
     const { count, rows } = await song.findAndCountAll({
       where: {
@@ -531,34 +530,135 @@ async function getAllSongs(
       ],
     });
 
+    // const totalPages = Math.ceil(count / limit);
+    // const data = await Promise.all(
+    //   rows.map(async (song: any) => {
+    //     const is_favorite = userId
+    //       ? !!(await favorites.findOne({
+    //         where: { user_id: userId, song_id: song.get("song_id") },
+    //       }))
+    //       : false;
+    //     const is_downloaded = userId
+    //       ? !!(await Downloads.findOne({
+    //         where: { user_id: userId, song_id: song.get("song_id") },
+    //       }))
+    //       : false;
+    //     const download_counts = await Downloads.count({
+    //       where: { song_id: song.get("song_id") },
+    //     });
+    //     const listen_counts = await History.count({
+    //       where: { song_id: song.get("song_id") },
+    //     });
+    //     return {
+    //       ...song.toJSON(),
+    //       is_favorite: !!is_favorite,
+    //       is_downloaded: !!is_downloaded,
+    //       download_counts,
+    //       listen_counts,
+    //     };
+    //   }),
+    // );
+
+    // return {
+    //   data,
+    //   Pagination: {
+    //     current_page: page,
+    //     records_per_page: limit,
+    //     total_pages: totalPages,
+    //     total_records: count,
+    //   },
+    // };
     const totalPages = Math.ceil(count / limit);
-    const data = await Promise.all(
-      rows.map(async (song: any) => {
-        const is_favorite = userId
-          ? !!(await favorites.findOne({
-            where: { user_id: userId, song_id: song.get("song_id") },
-          }))
-          : false;
-        const is_downloaded = userId
-          ? !!(await Downloads.findOne({
-            where: { user_id: userId, song_id: song.get("song_id") },
-          }))
-          : false;
-        const download_counts = await Downloads.count({
-          where: { song_id: song.get("song_id") },
-        });
-        const listen_counts = await History.count({
-          where: { song_id: song.get("song_id") },
-        });
-        return {
-          ...song.toJSON(),
-          is_favorite: !!is_favorite,
-          is_downloaded: !!is_downloaded,
-          download_counts,
-          listen_counts,
-        };
-      }),
+
+    const ids = rows.map((item: any) => item.get("song_id"));
+
+    // Fetch favorites, downloads and counts in batches
+    const [favs, userDownloads, downloadCounts, listenCounts] =
+      ids.length > 0
+        ? await Promise.all([
+          userId
+            ? favorites.findAll({
+              where: {
+                user_id: userId,
+                song_id: { [Op.in]: ids },
+              },
+              attributes: ["song_id"],
+              raw: true,
+            })
+            : Promise.resolve([]),
+
+          userId
+            ? Downloads.findAll({
+              where: {
+                user_id: userId,
+                song_id: { [Op.in]: ids },
+              },
+              attributes: ["song_id"],
+              raw: true,
+            })
+            : Promise.resolve([]),
+
+          Downloads.findAll({
+            where: {
+              song_id: { [Op.in]: ids },
+            },
+            attributes: [
+              "song_id",
+              [sequelize.fn("COUNT", sequelize.col("song_id")), "total"],
+            ],
+            group: ["song_id"],
+            raw: true,
+          }),
+
+          History.findAll({
+            where: {
+              song_id: { [Op.in]: ids },
+            },
+            attributes: [
+              "song_id",
+              [sequelize.fn("COUNT", sequelize.col("song_id")), "total"],
+            ],
+            group: ["song_id"],
+            raw: true,
+          }),
+        ])
+        : [[], [], [], []];
+
+    // Create lookup sets/maps for fast access
+    const favSet = new Set(
+      favs.map((item: any) => Number(item.song_id)),
     );
+
+    const downloadedSet = new Set(
+      userDownloads.map((item: any) => Number(item.song_id)),
+    );
+
+    const downloadCountMap = new Map(
+      downloadCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ]),
+    );
+
+    const listenCountMap = new Map(
+      listenCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ]),
+    );
+
+    // Attach computed values without per-song queries
+    const data = rows.map((item: any) => {
+      const songId = Number(item.get("song_id"));
+
+      return {
+        ...item.toJSON(),
+        is_favorite: userId ? favSet.has(songId) : false,
+        is_downloaded: userId ? downloadedSet.has(songId) : false,
+        download_counts: downloadCountMap.get(songId) ?? 0,
+        listen_counts: listenCountMap.get(songId) ?? 0,
+      };
+    });
 
     return {
       data,
@@ -613,21 +713,14 @@ async function getAdminAllSongs(
     if (excludeSongIds.length > 0) {
       whereClause.song_id = { [Op.notIn]: excludeSongIds };
     }
-    console.log(search);
 
     const { count, rows } = await song.findAndCountAll({
       where: {
         ...whereClause,
-
         ...(search
           ? {
             [Op.or]: [
-              {
-                title: {
-                  [Op.iLike]: `%${search}%`,
-                },
-              },
-
+              { title: { [Op.iLike]: `%${search}%` } }, // song title match
               // Search by singer name
               sequelize.literal(`
               EXISTS (
@@ -643,24 +736,21 @@ async function getAdminAllSongs(
           }
           : {}),
       },
-
       limit,
       offset,
       order: [["createdAt", "DESC"]],
+      // order: [[sequelize.literal("RANDOM()")]],
       distinct: true,
-
       include: [
         {
           model: Genre,
           as: "genre",
           attributes: ["genre_id", "name"],
         },
-
         {
           model: MusicSinger,
           as: "artists",
           attributes: ["music_singer_id"],
-
           include: [
             {
               model: User,
@@ -670,12 +760,10 @@ async function getAdminAllSongs(
             },
           ],
         },
-
         {
           model: MovieSongConnection,
           as: "movie",
           attributes: ["movie_song_id"],
-
           include: [
             {
               model: Movie,

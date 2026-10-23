@@ -10,7 +10,7 @@ const clientSecret = config.PAYPAL_CLIENT_SECRET;
 // Base URL for Sandbox
 const PAYPAL_API = config.PAYPAL_API;
 
-console.info("PAYPAL",clientId,clientSecret,PAYPAL_API)
+
 
 // Step 1 – Get Access Token
 async function getAccessToken(): Promise<string> {
@@ -54,7 +54,6 @@ async function getAccessToken(): Promise<string> {
 //       },
 //       data: orderData,
 //     });
-//     console.log(response.data, "response from create order");
 //     return response.data;
 //   } catch (error: any) {
 //     console.error("PayPal API error:", error.response?.data || error.message);
@@ -89,9 +88,37 @@ async function createOrder(amount: number) {
     return response.data;
 
   } catch (error: any) {
-    console.log("PayPal API error:", error.response?.data || error.message);
     throw new Error(error.response?.data?.error_description || "PayPal failed");
   }
+}
+
+// Step 3 – Confirm the order is paid. Captures it if the client only approved it.
+// Returns the paid amount and currency, or null if the order is not completed.
+export async function verifyOrderPaid(
+  orderId: string
+): Promise<{ amount: string; currency: string } | null> {
+  const accessToken = await getAccessToken();
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
+  const orderUrl = `${PAYPAL_API}/v2/checkout/orders/${encodeURIComponent(orderId)}`;
+
+  let order = (await axios.get(orderUrl, { headers })).data;
+
+  if (order.status === "APPROVED") {
+    order = (await axios.post(`${orderUrl}/capture`, {}, { headers })).data;
+  }
+
+  if (order.status !== "COMPLETED") return null;
+
+  const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
+  if (!capture || capture.status !== "COMPLETED") return null;
+
+  return {
+    amount: capture.amount?.value,
+    currency: capture.amount?.currency_code,
+  };
 }
 
 export default createOrder;

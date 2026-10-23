@@ -32,8 +32,6 @@ import formatDuration from "../helpers/durationOfAudio";
 // }
 // export async function addEpisode(req: Request, res: Response) {
 //   try {
-//     console.log("BODY:", req.body);
-//     console.log("FILES:", req.files);
 
 //     const { podcast_title, episode_title, episode_description } = req.body;
 
@@ -73,6 +71,7 @@ import formatDuration from "../helpers/durationOfAudio";
 // }
 import { parseFile } from "music-metadata";
 import path from "path";
+import { logger } from "../utils";
 
 export async function addEpisode(req: Request, res: Response) {
   try {
@@ -100,7 +99,7 @@ export async function addEpisode(req: Request, res: Response) {
 
     const durationSeconds = metadata.format.duration || 0;
     const durationFormatted = formatDuration(durationSeconds);
-    console.log("durationFormatted", durationFormatted);
+   
 
     const payload = {
       podcast_title,
@@ -117,7 +116,7 @@ export async function addEpisode(req: Request, res: Response) {
       duration: durationFormatted,
     });
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to add episode"
@@ -207,7 +206,7 @@ export async function editEpisode(req: Request, res: Response) {
       }
     );
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to update episode"

@@ -1,0 +1,11 @@
+# Keep line endings consistent (production branch used CRLF, main used LF).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.mp3 binary
+*.woff binary
+*.woff2 binary

@@ -1,4 +1,6 @@
 import db from "../models"; // adjust based on your structure
+import { hashPassword } from "../services/common/password.service";
+import { logger } from "./logger";
 
 const seedAdmin = async () => {
   try {
@@ -12,9 +14,10 @@ const seedAdmin = async () => {
     });
 
     if (existingAdmin) {
-      console.log("✅ Admin already exists");
       return;
     }
+
+    const hashedPassword = await hashPassword("123456");
 
     // 🔐 Hash password
 
@@ -23,15 +26,15 @@ const seedAdmin = async () => {
       first_name: "Super",
       last_name: "Admin",
       email: adminEmail,
-      password: 123456,
+      password: hashedPassword,
       gender: "male",
       dob: "1995-01-01",
       mobile_number: "9999999999",
     });
 
-    console.log("🔥 Default admin created successfully");
+    logger.info("Default admin created successfully");
   } catch (error) {
-    console.error("❌ Error seeding admin:", error);
+    logger.error("Error seeding admin:", error);
   }
 };
 

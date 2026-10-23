@@ -34,6 +34,12 @@ module.exports = (sequelize:any, DataTypes:any) => {
         type: DataTypes.ENUM("stripe", "paypal"),
         allowNull: false,
       },
+      // Stripe PaymentIntent id or PayPal order id. Unique so one payment activates one subscription.
+      payment_reference: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+      },
       expires_at: {
         type: DataTypes.DATE,
         allowNull: false,

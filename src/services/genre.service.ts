@@ -107,7 +107,6 @@ async function getSongsByGenre(
   pageSize: number = 10,
   userId:number
 ): Promise<any> {
-  console.log("Genre Id !@!@112", genreId);
   try {
     const offset = (page - 1) * pageSize;
 
@@ -145,7 +144,6 @@ async function getSongsByGenre(
       ],
     });
     const song_counts = await song.count({ where: { genre_id: genreId } });
-    // console.log("song_counts", songs.get("song_id"));
     
     const data = songs.map((songs: any) => {
       const songJson = songs.toJSON();

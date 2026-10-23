@@ -6,9 +6,10 @@ import {
   user_service,
 } from "../services";
 import db from "../models";
+import { config } from "../config";
 
 const { SubscribedUsers, SunscriptionPlans, History, User } = db;
-import createOrder from "./paypal.controller";
+import createOrder, { verifyOrderPaid } from "./paypal.controller";
 
 // get all plans ===============================================================
 async function getAllPlans(req: Request, res: Response) {
@@ -129,7 +130,6 @@ async function subscribe(req: Request, res: Response) {
       ],
     });
 
-    console.info("User info !@!@12", user);
 
     if (!user) {
       return response_service.notFoundResponse(res, "User not found.");
@@ -162,6 +162,8 @@ async function subscribe(req: Request, res: Response) {
         email: user.email,
         name: user.full_name,
         amount: plan.price,
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
       });
       return response_service.successResponse(
         res,
@@ -203,25 +205,83 @@ async function afterPayment(req: Request, res: Response) {
     if (!plan) {
       return response_service.notFoundResponse(res, "Plan not found.");
     }
-    if (
-      req.body.payment_status == "failed" ||
-      req.body.payment_status == "pending"
-    ) {
-      return response_service.notFoundResponse(
-        res,
-        "Payment failed or pending."
-      );
+    const payment_method = req.body.payment_method;
+    const canVerify =
+      !!req.body.payment_reference &&
+      (payment_method === "stripe" || payment_method === "paypal");
+
+    if (!canVerify) {
+      // Older app builds (and apple_iap / razorpay) only report payment_status.
+      // Same behaviour as production until ALLOW_LEGACY_PAYMENT_CONFIRM is "false".
+      if (config.ALLOW_LEGACY_PAYMENT_CONFIRM == "false") {
+        return response_service.badRequestResponse(
+          res,
+          "payment_reference is required."
+        );
+      }
+      if (
+        !req.body.payment_status ||
+        req.body.payment_status == "failed" ||
+        req.body.payment_status == "pending"
+      ) {
+        return response_service.notFoundResponse(
+          res,
+          "Payment failed or pending."
+        );
+      }
+      await subscription_service.subscribe({
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
+        amount: plan.price,
+        payment_date: new Date(),
+        payment_method,
+        payment_status: req.body.payment_status,
+      });
+    } else {
+      // Store the PaymentIntent id (not the client secret) so reuse checks match either form.
+      const payment_reference = String(req.body.payment_reference).split("_secret_")[0];
+
+      if (await subscription_service.isPaymentReferenceUsed(payment_reference)) {
+        return response_service.badRequestResponse(
+          res,
+          "This payment has already been used."
+        );
+      }
+
+      // Never trust the client's payment_status: confirm with the provider.
+      let isPaid = false;
+      if (payment_method === "stripe") {
+        isPaid = await subscription_service.verifyStripePayment({
+          reference: payment_reference,
+          user_id: user.user_id,
+          plan_id: subscription_plan_id,
+          amount: plan.price,
+        });
+      } else {
+        const paid = await verifyOrderPaid(payment_reference);
+        isPaid =
+          !!paid &&
+          paid.currency === "USD" &&
+          Number(paid.amount) === Number(plan.price);
+      }
+
+      if (!isPaid) {
+        return response_service.badRequestResponse(
+          res,
+          "Payment not completed or does not match the plan."
+        );
+      }
+
+      await subscription_service.subscribe({
+        user_id: user.user_id,
+        plan_id: subscription_plan_id,
+        amount: plan.price,
+        payment_date: new Date(),
+        payment_method,
+        payment_status: "completed",
+        payment_reference,
+      });
     }
-    console.log("DONE_________1");
-    await subscription_service.subscribe({
-      user_id: user.user_id,
-      plan_id: subscription_plan_id,
-      amount: plan.price,
-      payment_date: new Date(),
-      payment_method: req.body.payment_method,
-      payment_status: req.body.payment_status,
-    });
-    console.log("DONE_________2");
 
     const subscription = await user_service.getUser(
       {
@@ -247,7 +307,6 @@ async function afterPayment(req: Request, res: Response) {
         },
       ]
     );
-    console.log("DONE_________3");
     return response_service.successResponse(
       res,
       "Subscription created successfully.",

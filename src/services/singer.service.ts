@@ -12,7 +12,8 @@ const {
 } = db;
 import { ISong } from "../types";
 import { user_service } from ".";
-import { Op } from 'sequelize';
+import { Op, fn, col } from "sequelize";
+import { logger } from "../utils";
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -76,26 +77,64 @@ async function mySongs(
         },
       ],
     });
-    console.log(rows);
 
-    const data = await Promise.all(
-      rows?.map(async (record: any) => {
-        const songData = record.get({ plain: true });
-        const favourites_count = await favorites.count({
-          where: { song_id: songData.song.song_id },
-        });
+    const songIds = rows
+      .map((record: any) => record.song?.song_id)
+      .filter((id: any) => id != null);
 
-        const listens_count = await History.count({
-          where: { song_id: songData.song.song_id },
-        });
-        return {
-          singer: songData.singer,
-          ...songData.song,
-          favourites_count,
-          listens_count,
-        };
-      })
+    const [favouritesCounts, listensCounts] = songIds.length
+      ? await Promise.all([
+        favorites.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+
+        History.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+      ])
+      : [[], []];
+
+    const favouritesMap = new Map(
+      favouritesCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
     );
+
+    const listensMap = new Map(
+      listensCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
+    );
+
+    const data = rows.map((record: any) => {
+      const songData = record.get({ plain: true });
+      const songId = Number(songData.song?.song_id);
+
+      return {
+        singer: songData.singer,
+        ...songData.song,
+        favourites_count: favouritesMap.get(songId) ?? 0,
+        listens_count: listensMap.get(songId) ?? 0,
+      };
+    });
 
     return {
       data,
@@ -169,63 +208,6 @@ async function setfavorite(userId: number, artistId: number): Promise<boolean> {
       return true;
     }
   } catch (err) {
-    throw err;
-  }
-}
-
-async function getFavoriteArtistsold(
-  userId: number,
-  page: number = 1,
-  limit: number = 10
-): Promise<{
-  artists: any[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-} | null> {
-  try {
-    const offset = (page - 1) * limit;
-    // Count total favorite artists for pagination
-    const total = await favoriteArtists.count({
-      where: { user_id: userId },
-    });
-
-    // Fetch artist_user_ids
-    const rows = await favoriteArtists.findAll({
-      where: { user_id: userId },
-      attributes: ["artist_user_id"],
-      limit,
-      offset,
-    });
-
-    // Resolve all artist details
-    const artists = await Promise.all(
-      rows.map(async (row: any) => {
-        const { artist_user_id } = row.toJSON();
-        const songs_count = await mySongsCount(
-          parseInt(artist_user_id)
-        );
-        return {
-          ...await user_service.getUser(
-            { user_id: artist_user_id.toString() },
-            [],
-            ["user_id", "full_name", "profile_pic"]
-          ),
-          songs_count,
-        };
-      })
-    );
-
-    return {
-      artists,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  } catch (err) {
-    console.error("Error in getFavoriteArtists:", err);
     throw err;
   }
 }
@@ -311,7 +293,7 @@ async function getFavoriteArtists(
       totalPages: Math.ceil(total / limit),
     };
   } catch (err) {
-    console.error("Error in getFavoriteArtists:", err);
+    logger.error("Error in getFavoriteArtists:", err);
     throw err;
   }
 }

@@ -77,11 +77,6 @@ module.exports = (sequelize: any, DataTypes: any) => {
             foreignKey: "song_id",
             as: "movie",
         });
-
-        Song.hasMany(models.favoriteAlbums, {
-            foreignKey: "album_id",
-            as: "favoriteAlbumBy",
-        });
     }
     return Song
 }

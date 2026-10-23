@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { logger } from "../../utils";
 dotenv.config();
 
 const ONE_SIGNAL_APP_ID = process.env.ONE_SIGNAL_APP_ID as string;
@@ -121,7 +122,7 @@ export const sendPushNotification = async ({
 
     return { userApp: data1, businessApp: data2 };
   } catch (error: any) {
-    console.error(
+    logger.error(
       "OneSignal API error:",
       error?.response?.data || error.message || error
     );

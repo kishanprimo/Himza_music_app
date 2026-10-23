@@ -15,6 +15,7 @@ const {
 import { fn, col, literal, QueryTypes } from "sequelize";
 import removeExtraFields from "./common/removeExtraFields.service";
 import { Op } from "sequelize";
+import { logger } from "../utils";
 
 type Timeframe = "day" | "week" | "month" | "year" | "total";
 
@@ -189,28 +190,87 @@ async function getAllUsersList(
       offset,
     });
 
-    const cleanedUsers: IUser[] = await Promise.all(
-      users.map(async (user: any) => {
-        const cleanedUser = removeExtraFields(user.toJSON(), [
-          "password",
-          "otp",
-          "current_song_time",
-          "current_song_id",
-          "current_album_id",
-        ]) as IUser;
+    const userIds = users.map((user: any) => user.user_id);
 
-        const likes_count = await favoriteArtists.count({
-          where: { artist_user_id: cleanedUser.user_id },
-        });
-        const songs_count = await MusicSinger.count({
-          where: { user_id: cleanedUser.user_id },
-        });
-        const total_listens = await History.count({
-          where: { user_id: cleanedUser.user_id },
-        });
-        return { ...cleanedUser, likes_count, songs_count, total_listens };
-      })
+    const [likesCounts, songsCounts, listensCounts] = await Promise.all([
+      favoriteArtists.findAll({
+        attributes: [
+          "artist_user_id",
+          [fn("COUNT", col("artist_user_id")), "total"],
+        ],
+        where: {
+          artist_user_id: { [Op.in]: userIds },
+        },
+        group: ["artist_user_id"],
+        raw: true,
+      }),
+
+      MusicSinger.findAll({
+        attributes: [
+          "user_id",
+          [fn("COUNT", col("user_id")), "total"],
+        ],
+        where: {
+          user_id: { [Op.in]: userIds },
+        },
+        group: ["user_id"],
+        raw: true,
+      }),
+
+      History.findAll({
+        attributes: [
+          "user_id",
+          [fn("COUNT", col("user_id")), "total"],
+        ],
+        where: {
+          user_id: { [Op.in]: userIds },
+        },
+        group: ["user_id"],
+        raw: true,
+      }),
+    ]);
+
+    const likesMap = new Map(
+      likesCounts.map((item: any) => [
+        Number(item.artist_user_id),
+        Number(item.total),
+      ])
     );
+
+    const songsMap = new Map(
+      songsCounts.map((item: any) => [
+        Number(item.user_id),
+        Number(item.total),
+      ])
+    );
+
+    const listensMap = new Map(
+      listensCounts.map((item: any) => [
+        Number(item.user_id),
+        Number(item.total),
+      ])
+    );
+
+
+    const cleanedUsers: IUser[] = users.map((user: any) => {
+      const cleanedUser = removeExtraFields(user.toJSON(), [
+        "password",
+        "otp",
+        "current_song_time",
+        "current_song_id",
+        "current_album_id",
+      ]) as IUser;
+
+      const userId = Number(cleanedUser.user_id);
+
+      return {
+        ...cleanedUser,
+        likes_count: likesMap.get(userId) ?? 0,
+        songs_count: songsMap.get(userId) ?? 0,
+        total_listens: listensMap.get(userId) ?? 0,
+      };
+    });
+
     return {
       data: cleanedUsers,
       Pagination: {
@@ -258,13 +318,6 @@ async function dashboardCountCards(
   entity: "users" | "songs" | "albums" | "earnings"
 ) {
   try {
-
-    console.log({
-      User,
-      Album,
-      Song,
-      SubscribedUsers,
-    });
     //  total, last month, growth %
     switch (entity) {
       case "users": {
@@ -438,7 +491,7 @@ async function getTotalEarnings(): Promise<number> {
     const total = result[0]?.total;
     return total ? parseFloat(String(total)) : 0;
   } catch (err) {
-    console.error("Error calculating total earnings:", err);
+    logger.error("Error calculating total earnings:", err);
     return 0;
   }
 }
@@ -517,16 +570,16 @@ async function getMonthwiseUserData(): Promise<any> {
       monthData[month] = 0;
     });
 
-    // Use raw SQL query for reliability
+    // Postgres: camelCase columns must be quoted, and MONTH()/YEAR() don't exist.
     const query = `
-      SELECT 
-        MONTH(createdAt) as month, 
-        COUNT(*) as count 
-      FROM users 
-      WHERE is_deleted = false 
-        AND YEAR(createdAt) = :year
-      GROUP BY MONTH(createdAt)
-      ORDER BY month ASC
+      SELECT
+        EXTRACT(MONTH FROM "createdAt")::int AS month,
+        COUNT(*)::int AS count
+      FROM users
+      WHERE is_deleted = false
+        AND EXTRACT(YEAR FROM "createdAt") = :year
+      GROUP BY 1
+      ORDER BY 1 ASC
     `;
 
     const results: any = await db.sequelize?.query(query, {
@@ -548,7 +601,7 @@ async function getMonthwiseUserData(): Promise<any> {
 
     return monthData;
   } catch (err) {
-    console.error("Error fetching monthwise data:", err);
+    logger.error("Error fetching monthwise data:", err);
     // Return default data on error
     const monthNames = [
       "January",
@@ -629,7 +682,7 @@ async function getLoginMethodBreakdown(): Promise<any> {
 
     return breakdown;
   } catch (err) {
-    console.error("Error fetching login breakdown:", err);
+    logger.error("Error fetching login breakdown:", err);
     return {
       email: { count: 0, percentage: 0 },
       mobile: { count: 0, percentage: 0 },

@@ -50,6 +50,11 @@ module.exports = (sequelize: any, DataTypes: any) => {
             foreignKey: "genre_id",
             as: "albumGenre",
         });
+        Album.hasMany(models.favoriteAlbums, {
+            foreignKey: "album_id",
+            as: "favoritedBy",
+            onDelete: "CASCADE",
+        });
     }
     return Album;
 }

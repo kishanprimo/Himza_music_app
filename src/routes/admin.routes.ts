@@ -1,4 +1,5 @@
 import { authenticateAdmin } from "../middleware/auth.middleware";
+import { optionalAdminAuth } from "../middleware/optionalAuth.middleware";
 import { Router } from "express";
 import { Request, Response, NextFunction } from "express";
 
@@ -111,7 +112,7 @@ import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadc
 const router = Router();
 
 router.post("/login", validateBody(adminLoginSchema), verifyAdmin);
-router.get("/config", getConfig);
+router.get("/config", optionalAdminAuth, getConfig);
 
 router.use(authenticateAdmin);
 
@@ -306,6 +307,8 @@ router.post(
   removeGenre
 );
 
+router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
+// Admin panel sends song_id as a JSON string in multipart form data.
 const parseAlbumSongIds = (
   req: Request,
   res: Response,
@@ -326,7 +329,6 @@ const parseAlbumSongIds = (
   next();
 };
 
-router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
 router.post(
   "/update-album",
   parseAlbumSongIds,
@@ -440,7 +442,7 @@ router.post(
   getAdsForAdmin
 );
 
-router.post("/get-user-subscriptions", getUserSubscriptions);
+// router.post("/get-user-subscriptions", getUserSubscriptions);
 
 // to delete ad from list ================================
 router.post(

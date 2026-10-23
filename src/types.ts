@@ -1,4 +1,4 @@
-import { IntegerType } from "typeorm";
+// import { IntegerType } from "typeorm";
 
 export interface IUser {
   user_id: string;
@@ -7,7 +7,7 @@ export interface IUser {
   email: string;
   role: "user" | "admin";
   login_type: "email" | "social";
-  otp: IntegerType;
+  otp: number;
   login_verification_status: boolean;
   gender: string;
   dob: string;
