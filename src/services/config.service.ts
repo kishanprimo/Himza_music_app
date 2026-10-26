@@ -27,12 +27,10 @@ async function getConfig(): Promise<any> {
 // update config ===========================================
 async function updateConfig(payload: any): Promise<any> {
   try {
-    console.log("config payload",payload);
     const config = await Config.update(payload, {
       where: { config_id: 1 },
       returning: true,
     });
-    console.log(config);
     if (config?.[1].length <= 0) return null;
     return config[1][0].toJSON();
   } catch (err) {

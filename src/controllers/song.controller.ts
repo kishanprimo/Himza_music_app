@@ -11,6 +11,8 @@ import { logger } from "../utils";
 import { config } from "../config";
 import fs from "fs";
 import db from "../models";
+import { Op, fn, col } from "sequelize";
+// import Downloads from "../models/downloads";
 
 const {
   Genre,
@@ -19,11 +21,10 @@ const {
   MusicSinger,
   favoriteArtists,
   favorites,
+  Downloads,
 } = db;
-import { log } from "console";
 
 async function getSong(req: Request, res: Response) {
-  console.log("getSong", req.body, req.user);
   try {
     const song = await song_service.getSong(parseInt(req.body.song_id), [
       {
@@ -46,7 +47,6 @@ async function getSong(req: Request, res: Response) {
       },
     ]);
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
-    console.log("is_favorite", req.user?.user_id);
     const is_favorite = await song_service.isfavorite(
       req.user?.user_id,
       parseInt(req.body.song_id),
@@ -93,7 +93,7 @@ async function setDownloaded(req: Request, res: Response) {
     const songId = parseInt(req.body.song_id);
     const song = await song_service.getSong(songId);
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
-    const isDownloaded = await song_service.setDownloaded(user.user_id, songId);
+    await song_service.setDownloaded(user.user_id, songId);
     return response_service.successResponse(
       res,
       `Song marked as downloaded: true.`,
@@ -106,164 +106,162 @@ async function setDownloaded(req: Request, res: Response) {
 
 async function getMySongs(req: Request, res: Response) {
   try {
+    const artistId = Number(req.body.artist_id);
+    const page = Math.max(1, parseInt(req.body.page) || 1);
+    const limit = Math.max(1, parseInt(req.body.limit) || 10);
+    const currentUserId = req.user?.user_id;
+
     const artist = await user_service.getUser(
-      { user_id: req.body.artist_id, is_singer: true },
+      { user_id: String(artistId), is_singer: true },
       [],
       ["user_id", "full_name", "profile_pic"],
     );
+    if (!artist) {
+      return response_service.notFoundResponse(
+        res,
+        "Artist not found.",
+      );
+    }
 
-    const page = parseInt(req.body.page) || 1;
-    const limit = parseInt(req.body.limit) || 10;
-
-    if (!artist)
-      return response_service.notFoundResponse(res, "Artist not found.");
     let is_favorite = false;
     let artist_favorite = false;
 
-
-    if (req.user.user_id)
+    if (currentUserId) {
       is_favorite = await singer_service.isfavorite(
-        req.user.user_id,
-        req.body.artist_id,
+        currentUserId,
+        artistId,
       );
 
-    if (req.user.user_id) {
       const fav = await favoriteArtists.findOne({
         where: {
-          user_id: req.user.user_id,
-          artist_user_id: req.body.artist_id,
+          user_id: currentUserId,
+          artist_user_id: artistId,
         },
+        attributes: ["artist_user_id"],
       });
 
-      artist_favorite = fav ? true : false;
+      artist_favorite = !!fav;
     }
 
-    const songs_count = await singer_service.mySongsCount(
-      parseInt(req.body.artist_id),
+    const [songs_count, likes_count, songs] = await Promise.all([
+      singer_service.mySongsCount(artistId),
+
+      favoriteArtists.count({
+        where: { artist_user_id: artistId },
+      }),
+
+      singer_service.mySongs(artistId, page, limit),
+    ]);
+
+    const songIds = songs.data.map((item: any) => item.song_id);
+
+    let userFavorites: any[] = [];
+    let userDownloads: any[] = [];
+    let songLikes: any[] = [];
+
+    if (songIds.length > 0) {
+      [userFavorites, userDownloads, songLikes] = await Promise.all([
+        currentUserId
+          ? favorites.findAll({
+            where: {
+              user_id: currentUserId,
+              song_id: { [Op.in]: songIds },
+            },
+            attributes: ["song_id"],
+            raw: true,
+          })
+          : Promise.resolve([]),
+
+        currentUserId
+          ? Downloads.findAll({
+            where: {
+              user_id: currentUserId,
+              song_id: { [Op.in]: songIds },
+            },
+            attributes: ["song_id"],
+            raw: true,
+          })
+          : Promise.resolve([]),
+
+        favorites.findAll({
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          group: ["song_id"],
+          raw: true,
+        }),
+      ]);
+    }
+
+    const favoriteSongIds = new Set(
+      userFavorites.map((item: any) => Number(item.song_id)),
     );
-    const likes_count = await favoriteArtists.count({
-      where: { artist_user_id: req.body.artist_id },
+
+    const downloadedSongIds = new Set(
+      userDownloads.map((item: any) => Number(item.song_id)),
+    );
+
+    const songLikesMap = new Map<number, number>(
+      songLikes.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ]),
+    );
+
+    const formattedSongs = songs.data.map((song: any) => {
+      const { singer, ...rest } = song;
+      const songId = Number(song.song_id);
+
+      return {
+        ...rest,
+        singer: {
+          ...singer,
+          is_favorite,
+          songs_count,
+          likes_count,
+        },
+        artist_favorite,
+        is_favorite: currentUserId
+          ? favoriteSongIds.has(songId)
+          : false,
+        is_downloaded: currentUserId
+          ? downloadedSongIds.has(songId)
+          : false,
+        likes_count: songLikesMap.get(songId) ?? 0,
+      };
     });
 
-    let songs: any = await singer_service.mySongs(
-      parseInt(req.body.artist_id),
-      page,
-      limit
+    return response_service.successResponse(
+      res,
+      "Songs fetched successfully.",
+      {
+        artist_favorite,
+        pagination: {
+          total: songs.total,
+          page: songs.page,
+          pageSize: songs.pageSize,
+          totalPages: songs.totalPages,
+        },
+        data: formattedSongs,
+      },
     );
-
-    const formattedSongs = await Promise.all(
-      songs.data.map(async (song: any) => {
-        const { singer, ...rest } = song;
-
-        return {
-          ...rest,
-          singer: {
-            ...singer,
-            is_favorite,
-            songs_count,
-            likes_count,
-          },
-          artist_favorite,
-          is_favorite: req.user.user_id
-            ? await song_service.isfavorite(req.user?.user_id, song.song_id)
-            : false,
-          is_downloaded: req.user.user_id
-            ? await song_service.isDownloaded(req.user?.user_id, song.song_id)
-            : false,
-          likes_count: await favorites.count({
-            where: { song_id: song.song_id },
-          }),
-        };
-      })
-    );
-    if (formattedSongs.length > 0) {
-      return response_service.successResponse(
-        res,
-        "Songs fetched successfully.",
-        {
-          artist_favorite,
-          pagination: {
-            total: songs.total,
-            page: songs.page,
-            pageSize: songs.pageSize,
-            totalPages: songs.totalPages,
-          },
-          data: formattedSongs,
-        }
-      );
-    } else {
-      const singer = await user_service.getUser(
-        { user_id: req.body.artist_id, is_singer: true },
-        [],
-        ["user_id", "full_name", "profile_pic"]
-      );
-
-      let is_favorite = false;
-
-      if (req.user.user_id) {
-        is_favorite = await singer_service.isfavorite(
-          req.user.user_id,
-          req.body.artist_id
-        );
-      }
-
-      const songs_count = await singer_service.mySongsCount(
-        parseInt(req.body.artist_id)
-      );
-
-      // return response_service.successResponse(
-      //   res,
-      //   "Songs fetched successfully.",
-      //   {
-      //     artist_favorite,
-      //     pagination: {
-      //       total: 0,
-      //       page,
-      //       pageSize: limit,
-      //       totalPages: 0,
-      //     },
-      //     data: [
-      //       {
-      //         singer: {
-      //           ...singer,
-      //           is_favorite,
-      //           songs_count,
-      //         },
-      //       },
-      //     ],
-      //   }
-      // );
-
-      if (formattedSongs.length === 0) {
-        return response_service.successResponse(
-          res,
-          "Songs fetched successfully.",
-          {
-            artist_favorite,
-            pagination: {
-              total: songs.total,
-              page: songs.page,
-              pageSize: songs.pageSize,
-              totalPages: songs.totalPages,
-            },
-            data: [],
-          }
-        );
-      }
-    }
   } catch (err: any) {
     logger.error("Error fetching songs:", err);
-    console.log(err);
-    return response_service.internalServerErrorResponse(res, err.message);
+
+    return response_service.internalServerErrorResponse(
+      res,
+      err.message,
+    );
   }
 }
 
+
 async function createMusic(req: Request, res: Response) {
   try {
-
-    console.log("========== CREATE MUSIC ==========");
-    console.log("BODY:", req.body);
-    console.log("ARTIST IDS:", req.body.artist_ids);
     const files = req.files as
       | { [fieldname: string]: Express.Multer.File[] }
       | undefined;
@@ -291,8 +289,8 @@ async function createMusic(req: Request, res: Response) {
     const song = await singer_service.addSong({
       category_id: req.body.category_id,
       genre_id: req.body.genre_id,
-      audio: audio.path,
-      thumbnail: thumbnail.path,
+      audio: audio.path.replace(/\\/g, "/"),
+      thumbnail: thumbnail.path.replace(/\\/g, "/"),
       title: req.body.title,
       duration: duration.toString(),
     });
@@ -311,9 +309,6 @@ async function createMusic(req: Request, res: Response) {
         ? [req.body.artist_ids]
         : [];
 
-    console.log("ARTIST IDS:", artistIds);
-    console.log("CREATED SONG ID:", song.song_id);
-
     // 3. Add artists to music_singers
     for (const artistId of artistIds) {
       const singerId = Number(artistId);
@@ -322,22 +317,11 @@ async function createMusic(req: Request, res: Response) {
 
       const isSinger = await singer_service.isSinger(singerId);
 
-      console.log(
-        `Artist ${singerId} is singer:`,
-        isSinger,
-      );
-
       if (isSinger) {
-        const songSinger =
-          await singer_service.addSongToArtist(
+        await singer_service.addSongToArtist(
             Number(song.song_id),
             singerId,
           );
-
-        console.log(
-          "MusicSinger created:",
-          songSinger,
-        );
       }
     }
 
@@ -368,17 +352,6 @@ async function updateSong(req: Request, res: Response) {
       | undefined;
     let updatedData: any = { ...req.body };
 
-
-    // if (updatedData.artist_ids) {
-    //   try {
-    //     if (typeof updatedData.artist_ids === "string") {
-    //       updatedData.artist_ids = JSON.parse(updatedData.artist_ids);
-    //     }
-    //   } catch (error) {
-    //     updatedData.artist_ids = [];
-    //   }
-    // }
-    //     console.log(updatedData);
 
     if (files && files["audio"]) {
       updatedData.audio = files["audio"][0].path;
@@ -472,7 +445,6 @@ async function getfavoriteSongs(req: Request, res: Response) {
 
 // search for favorite songs ========================================
 async function searchFavoriteSongs(req: Request, res: Response) {
-  console.log("Search keyword !@12", req.body);
   try {
     const user = req.user as any;
 
@@ -588,7 +560,7 @@ export const searchDownloadedSongs = async (
       Pagination: result.Pagination,
     });
   } catch (error: any) {
-    console.error("Search Downloaded Songs Error:", error);
+    logger.error("Search Downloaded Songs Error:", error);
 
     return res.status(500).json({
       success: false,
@@ -600,7 +572,6 @@ export const searchDownloadedSongs = async (
 // all songs list ===============================================================
 async function getAllSongs(req: Request, res: Response) {
   try {
-    console.log(req.body);
     const songs = await song_service.getAllSongs(
       req.body.album_id,
       parseInt(req.body.page || 1),
@@ -625,7 +596,6 @@ async function getAllSongs(req: Request, res: Response) {
 
 async function getAdminAllSongs(req: Request, res: Response) {
   try {
-    console.log(req.body);
     const songs = await song_service.getAdminAllSongs(
       req.body.album_id,
       parseInt(req.body.page || 1),
@@ -663,7 +633,6 @@ async function getTrendingSongs(req: Request, res: Response) {
       songs,
     );
   } catch (err: any) {
-    console.log(err);
     logger.error("Error fetching trending songs:", err);
     return response_service.internalServerErrorResponse(res, err.message);
   }

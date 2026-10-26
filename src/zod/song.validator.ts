@@ -1,15 +1,5 @@
 import { z } from 'zod';
 
-// export const uploadMusicSchema = z.object({
-//     genre_id: z
-//         .string({ required_error: 'Genre id is required' }),
-//     title: z
-//         .string({ required_error: 'Title is required' })
-//         .min(1, 'Title is required'),
-//     artist_ids: z.
-//         array(z.string())
-//         .nonempty({ message: 'At least one artist id is required' }),
-//     });
 
 export const uploadMusicSchema = z.object({
   title: z

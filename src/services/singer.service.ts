@@ -11,8 +11,8 @@ const {
   History
 } = db;
 import { ISong } from "../types";
-import { user_service } from ".";
-import { Op } from 'sequelize';
+import { Op, fn, col } from "sequelize";
+import { logger } from "../utils";
 async function addSongToArtist(songId: number, artistId: number) {
   try {
     const songSinger = await MusicSinger.create({
@@ -76,26 +76,64 @@ async function mySongs(
         },
       ],
     });
-    console.log(rows);
 
-    const data = await Promise.all(
-      rows?.map(async (record: any) => {
-        const songData = record.get({ plain: true });
-        const favourites_count = await favorites.count({
-          where: { song_id: songData.song.song_id },
-        });
+    const songIds = rows
+      .map((record: any) => record.song?.song_id)
+      .filter((id: any) => id != null);
 
-        const listens_count = await History.count({
-          where: { song_id: songData.song.song_id },
-        });
-        return {
-          singer: songData.singer,
-          ...songData.song,
-          favourites_count,
-          listens_count,
-        };
-      })
+    const [favouritesCounts, listensCounts] = songIds.length
+      ? await Promise.all([
+        favorites.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+
+        History.findAll({
+          attributes: [
+            "song_id",
+            [fn("COUNT", col("song_id")), "total"],
+          ],
+          where: {
+            song_id: { [Op.in]: songIds },
+          },
+          group: ["song_id"],
+          raw: true,
+        }),
+      ])
+      : [[], []];
+
+    const favouritesMap = new Map(
+      favouritesCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
     );
+
+    const listensMap = new Map(
+      listensCounts.map((item: any) => [
+        Number(item.song_id),
+        Number(item.total),
+      ])
+    );
+
+    const data = rows.map((record: any) => {
+      const songData = record.get({ plain: true });
+      const songId = Number(songData.song?.song_id);
+
+      return {
+        singer: songData.singer,
+        ...songData.song,
+        favourites_count: favouritesMap.get(songId) ?? 0,
+        listens_count: listensMap.get(songId) ?? 0,
+      };
+    });
 
     return {
       data,
@@ -143,13 +181,6 @@ async function isfavorite(userId: number, artistId: number): Promise<boolean> {
   }
 }
 
-// async function isDownloaded(userId:number,artistId:number): Promise<boolean> {
-//   try {
-//     const download = await 
-//   } catch(err) {
-//     throw err
-//   }
-// }
 
 async function setfavorite(userId: number, artistId: number): Promise<boolean> {
   try {
@@ -169,63 +200,6 @@ async function setfavorite(userId: number, artistId: number): Promise<boolean> {
       return true;
     }
   } catch (err) {
-    throw err;
-  }
-}
-
-async function getFavoriteArtistsold(
-  userId: number,
-  page: number = 1,
-  limit: number = 10
-): Promise<{
-  artists: any[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-} | null> {
-  try {
-    const offset = (page - 1) * limit;
-    // Count total favorite artists for pagination
-    const total = await favoriteArtists.count({
-      where: { user_id: userId },
-    });
-
-    // Fetch artist_user_ids
-    const rows = await favoriteArtists.findAll({
-      where: { user_id: userId },
-      attributes: ["artist_user_id"],
-      limit,
-      offset,
-    });
-
-    // Resolve all artist details
-    const artists = await Promise.all(
-      rows.map(async (row: any) => {
-        const { artist_user_id } = row.toJSON();
-        const songs_count = await mySongsCount(
-          parseInt(artist_user_id)
-        );
-        return {
-          ...await user_service.getUser(
-            { user_id: artist_user_id.toString() },
-            [],
-            ["user_id", "full_name", "profile_pic"]
-          ),
-          songs_count,
-        };
-      })
-    );
-
-    return {
-      artists,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  } catch (err) {
-    console.error("Error in getFavoriteArtists:", err);
     throw err;
   }
 }
@@ -280,28 +254,24 @@ async function getFavoriteArtists(
       offset + limit
     );
 
-    const artists = await Promise.all(
-      paginatedRows.map(async (row: any) => {
-        const { artist_user_id } = row.toJSON();
-
-        const songs_count = await mySongsCount(
-          Number(artist_user_id)
-        );
-
-        const artist = await user_service.getUser(
-          {
-            user_id: artist_user_id.toString(),
-          },
-          [],
-          ["user_id", "full_name", "profile_pic"]
-        );
-
-        return {
-          ...artist,
-          songs_count,
-        };
-      })
+    const pageIds = paginatedRows.map((row: any) => Number(row.artist_user_id));
+    const [artistRows, songsCounts] = await Promise.all([
+      pageIds.length
+        ? User.findAll({
+          where: { user_id: { [Op.in]: pageIds }, is_deleted: false },
+          attributes: ["user_id", "full_name", "profile_pic"],
+        })
+        : [],
+      songsCountByArtist(pageIds),
+    ]);
+    const artistMap = new Map<number, any>(
+      artistRows.map((artist: any) => [Number(artist.user_id), artist.toJSON()])
     );
+
+    const artists = pageIds.map((id: number) => ({
+      ...artistMap.get(id),
+      songs_count: songsCounts.get(id) ?? 0,
+    }));
 
     return {
       artists,
@@ -311,7 +281,7 @@ async function getFavoriteArtists(
       totalPages: Math.ceil(total / limit),
     };
   } catch (err) {
-    console.error("Error in getFavoriteArtists:", err);
+    logger.error("Error in getFavoriteArtists:", err);
     throw err;
   }
 }
@@ -353,17 +323,14 @@ async function searchFavoriteArtists(
 
     if (!rows.length) return null;
 
-    const artists = await Promise.all(
-      rows.map(async (row: any) => {
-        const artist = row.artist;
-        const songs_count = await mySongsCount(artist.user_id);
-
-        return {
-          ...artist.toJSON(),
-          songs_count,
-        };
-      })
+    const songsCounts = await songsCountByArtist(
+      rows.map((row: any) => Number(row.artist.user_id))
     );
+
+    const artists = rows.map((row: any) => ({
+      ...row.artist.toJSON(),
+      songs_count: songsCounts.get(Number(row.artist.user_id)) ?? 0,
+    }));
 
     return {
       artists,
@@ -378,6 +345,19 @@ async function searchFavoriteArtists(
 }
 
 
+// Number of songs per artist for a list of artists, in one grouped query.
+async function songsCountByArtist(artistIds: number[]): Promise<Map<number, number>> {
+  if (artistIds.length === 0) return new Map();
+  const counts = await MusicSinger.findAll({
+    where: { user_id: { [Op.in]: artistIds } },
+    attributes: ["user_id", [fn("COUNT", col("user_id")), "total"]],
+    group: ["user_id"],
+    raw: true,
+  });
+  return new Map(
+    counts.map((item: any) => [Number(item.user_id), Number(item.total)])
+  );
+}
 
 async function mySongsCount(artistId: number): Promise<number> {
   try {

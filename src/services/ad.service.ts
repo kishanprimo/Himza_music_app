@@ -120,7 +120,7 @@ async function addAlbumsToAd(
   album_id: number
 ): Promise<IAds | null> {
   try {
-    const [count, updated] = await Ads.update(
+    const [, updated] = await Ads.update(
       {
         album_ids: fn("array_append", col("album_ids"), album_id),
       },
@@ -141,7 +141,7 @@ async function removeAlbumsFromAd(
   album_id: number
 ): Promise<IAds | null> {
   try {
-    const [count, updated] = await Ads.update(
+    const [, updated] = await Ads.update(
       {
         album_ids: Sequelize.literal(`array_remove(album_ids, ${album_id})`),
       },

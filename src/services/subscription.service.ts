@@ -1,4 +1,4 @@
-import { ISubscriptionPlans, IUser } from "../types";
+import { ISubscriptionPlans } from "../types";
 import db from "../models";
 
 const { SunscriptionPlans, User, SubscribedUsers } = db;
@@ -90,7 +90,13 @@ async function deletePlan(where: any): Promise<ISubscriptionPlans | null> {
  * @param {number} params.amount - Amount in USD
  * @returns {Promise<string>} clientSecret
  */
-export async function createStripeIntent({ email, name, amount }: any) {
+export async function createStripeIntent({
+  email,
+  name,
+  amount,
+  user_id,
+  plan_id,
+}: any) {
   if (!email || !name) throw new Error("Email and Name are required");
   if (!amount || amount <= 0)
     throw new Error("Amount must be greater than zero");
@@ -110,6 +116,8 @@ export async function createStripeIntent({ email, name, amount }: any) {
     receipt_email: email,
     description: "Reel Boost Purchase",
     automatic_payment_methods: { enabled: true },
+    // Checked in verifyStripePayment so one user's payment can't activate another plan/user.
+    metadata: { user_id: String(user_id), plan_id: String(plan_id) },
     shipping: {
       name,
       address: {
@@ -126,6 +134,42 @@ export async function createStripeIntent({ email, name, amount }: any) {
   return paymentIntent.client_secret;
 }
 
+/**
+ * Checks with Stripe that a PaymentIntent was paid in full by this user for this plan.
+ * Accepts the PaymentIntent id ("pi_...") or its client secret ("pi_..._secret_...").
+ */
+export async function verifyStripePayment({
+  reference,
+  user_id,
+  plan_id,
+  amount,
+}: {
+  reference: string;
+  user_id: string | number;
+  plan_id: string | number;
+  amount: number;
+}): Promise<boolean> {
+  const paymentIntentId = reference.split("_secret_")[0];
+  const stripe = new Stripe(config.STRIPE_SECRET_KEY as string);
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+  return (
+    intent.status === "succeeded" &&
+    intent.currency === "usd" &&
+    intent.amount_received === Math.round(amount * 100) &&
+    intent.metadata?.user_id === String(user_id) &&
+    intent.metadata?.plan_id === String(plan_id)
+  );
+}
+
+async function isPaymentReferenceUsed(reference: string): Promise<boolean> {
+  const existing = await SubscribedUsers.findOne({
+    where: { payment_reference: reference },
+    attributes: ["subscription_id"],
+  });
+  return !!existing;
+}
+
 async function subscribe({
   user_id,
   plan_id,
@@ -133,6 +177,7 @@ async function subscribe({
   payment_date,
   payment_method,
   payment_status,
+  payment_reference,
 }: any) {
   try {
     const user = await User.findByPk(user_id);
@@ -150,6 +195,7 @@ async function subscribe({
       payment_date,
       payment_method,
       payment_status,
+      payment_reference,
       expires_at: new Date(
         Date.now() +
           (plan.duration === "1 MONTH"
@@ -224,6 +270,8 @@ export default {
   updatePlan,
   deletePlan,
   createStripeIntent,
+  verifyStripePayment,
+  isPaymentReferenceUsed,
   subscribe,
   removeExpieredSubscriptions,
   getAllSubscriptionHistory,

@@ -4,10 +4,7 @@ import { validateBody } from "../middleware/zod.middleware";
 import {
   getAlbum,
   setfavorite,
-  createAlbum,
-  getMyAlbums,
   getFavoriteAlbums,
-  removeSongsFromAlbum,
   deleteAlbum,
   searchFavoriteAlbums,
   getPlaylistSearchHistory,
@@ -15,7 +12,6 @@ import {
   removePlaylistSearchHistory,
   searchPlaylist,
   getAlbumSongs,
-  addSongsToAlbum, // ✅ proper import
   createPlaylist,
   addSongsToPlaylist,
   removeSongsFromPlaylist,

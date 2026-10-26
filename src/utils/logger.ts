@@ -23,21 +23,8 @@ const levels = {
     debug: 4,
 };
 
-type LogLevel = keyof typeof levels;
-
-// ANSI color codes
-const colors = {
-    error: '\x1b[31m', // Red
-    warn: '\x1b[33m',  // Yellow
-    info: '\x1b[32m',  // Green
-    http: '\x1b[35m',  // Magenta
-    debug: '\x1b[34m', // Blue
-    reset: '\x1b[0m'   // Reset
-};
-
-// Format for file logging with colors
+// Format for file logging
 const fileFormat = winston.format.printf(({ level, message, timestamp, ...metadata }) => {
-    const color = colors[level as LogLevel] || colors.reset;
     let msg = `${timestamp} ${message}`;
 
     // Add metadata if it exists

@@ -13,7 +13,6 @@ import { Router } from "express";
 import { validateBody } from "../middleware/zod.middleware";
 import {
   updateCurrentSongSchema,
-  updateUserSchema,
   updateSongTimeSchema,
   validateUsernameSchema,
 } from "../zod/user.validator";

@@ -55,29 +55,57 @@ export async function updateAdmin(req: Request, res: Response) {
 export async function changePassword(req: Request, res: Response) {
   try {
     const data = req.body as Partial<IAdmin>;
-    const admin = await admin_service.getAdmin({ admin_id: req.user.admin_id });
-    if (!admin)
-      return response_service.notFoundResponse(res, "Admin not found.");
-    console.log(admin.password, data.previous_password);
-    console.log(data, req.body);
 
-    if (admin.password != data.previous_password)
+    const admin = await admin_service.getAdmin({
+      admin_id: req.user.admin_id,
+    });
+
+    if (!admin) {
+      return response_service.notFoundResponse(
+        res,
+        "Admin not found."
+      );
+    }
+
+    const isPasswordValid = await admin_service.checkAdminPassword(
+      admin.admin_id,
+      String(data.previous_password ?? ""),
+      String(admin.password ?? "")
+    );
+
+    if (!isPasswordValid) {
       return response_service.badRequestResponse(
         res,
         "Previous password is incorrect."
       );
+    }
+
+    if (!data.password) {
+      return response_service.badRequestResponse(
+        res,
+        "New password is required."
+      );
+    }
+
     await admin_service.changePassword(
-      { ...data, admin_id: req.user.admin_id },
+      {
+        password: data.password,
+        admin_id: req.user.admin_id,
+      },
       {
         admin_id: req.user.admin_id,
       }
     );
+
     return response_service.successResponse(
       res,
       "Password changed successfully."
     );
   } catch (err: any) {
     logger.error("Error changing password:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
+    return response_service.internalServerErrorResponse(
+      res,
+      "Unable to change password."
+    );
   }
 }

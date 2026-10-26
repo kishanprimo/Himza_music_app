@@ -4,12 +4,8 @@ import { logger } from "../utils";
 import db from "../models";
 
 const {
-  Album,
-  MusicSinger,
-  Song,
   SubscribedUsers,
   SunscriptionPlans,
-  User,
 }  = db;
 
 async function getCount(req: Request, res: Response) {

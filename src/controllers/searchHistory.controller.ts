@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { logger } from "../utils";
 import { response_service, searchHistory_service } from "../services";
-import { log } from "console";
 
 async function addToSearchHistory(req: Request, res: Response) {
   try {
@@ -38,7 +37,6 @@ async function addToSearchHistory(req: Request, res: Response) {
 }
 
 async function getSearchHistory(req: Request, res: Response) {
-  console.log(req.body);
   
   try {
     if (!req.user) {

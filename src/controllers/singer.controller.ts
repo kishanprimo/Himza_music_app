@@ -24,8 +24,6 @@ async function getFavoriteArtists(req: Request, res: Response) {
 
 // search favorite artist
 async function searchFavoriteArtists(req: Request, res: Response) {
-  console.log(req.body); // shows page & limit here
-
   try {
     const page =
       req.body.page && !isNaN(Number(req.body.page))

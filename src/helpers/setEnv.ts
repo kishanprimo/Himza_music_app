@@ -24,7 +24,6 @@ export function updateEnvVariables(updates: any) {
   let envContent = fs.readFileSync(envFilePath, "utf8");
   // Loop through each variable to update
   for (const [key, value] of Object.entries(updates)) {
-    console.log(key, value);
     const regex = new RegExp(`^${key}=.*`, "m"); // Regex to find existing variable
     const newEntry = `${key}="${value}"`;
 
@@ -39,7 +38,6 @@ export function updateEnvVariables(updates: any) {
 
   // Write the updated content back to the .env file
   fs.writeFileSync(envFilePath, envContent, "utf8");
-  console.log("Environment variables updated successfully");
 }
 
 // // Variables to update

@@ -1,4 +1,5 @@
 import { authenticateAdmin } from "../middleware/auth.middleware";
+import { optionalAdminAuth } from "../middleware/optionalAuth.middleware";
 import { Router } from "express";
 import { Request, Response, NextFunction } from "express";
 
@@ -52,7 +53,6 @@ import {
   getArtist,
 } from "../controllers/artist.auth.controller";
 import { updateUserSchema } from "../zod/user.validator";
-import { SigninSchema } from "../zod/auth.validator";
 import {
   CreateGenreSchema,
   updateGenreSchema,
@@ -100,18 +100,17 @@ import {
   getUserSubscriptions,
   updatePlan,
 } from "../controllers/subscription.controller";
-import { paginationSchema } from "../zod/pagenation.validator";
 import { getAdsForAdmin, deleteAd } from "../controllers/ad.controller";
 import { createPodcast, getAllPodcast, editPodcast, getPodcastById, deletePodcast } from "../controllers/podcast.controller";
 import { addEpisode, getEpisodeList, editEpisode, deleteEpisode } from "../controllers/episode.controller"
-import { addEpisodeSchema, deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
+import { deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
 import { broadcastMessage, getbroadcastMessage } from "../controllers/Pushnotification.controller";
 import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadcast.validator";
 
 const router = Router();
 
 router.post("/login", validateBody(adminLoginSchema), verifyAdmin);
-router.get("/config", getConfig);
+router.get("/config", optionalAdminAuth, getConfig);
 
 router.use(authenticateAdmin);
 
@@ -306,6 +305,8 @@ router.post(
   removeGenre
 );
 
+router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
+// Admin panel sends song_id as a JSON string in multipart form data.
 const parseAlbumSongIds = (
   req: Request,
   res: Response,
@@ -326,7 +327,6 @@ const parseAlbumSongIds = (
   next();
 };
 
-router.post("/create-album", validateBody(createAlbumSchema), createAlbum);
 router.post(
   "/update-album",
   parseAlbumSongIds,
@@ -440,7 +440,7 @@ router.post(
   getAdsForAdmin
 );
 
-router.post("/get-user-subscriptions", getUserSubscriptions);
+// router.post("/get-user-subscriptions", getUserSubscriptions);
 
 // to delete ad from list ================================
 router.post(

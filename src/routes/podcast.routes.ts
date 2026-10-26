@@ -1,5 +1,5 @@
 import express from "express";
-import { createPodcast,getAllPodcast,editPodcast,getPodcastById,deletePodcast } from "../controllers/podcast.controller";
+import { getAllPodcast,getPodcastById } from "../controllers/podcast.controller";
 import { validateBody } from "../middleware/zod.middleware";
 import z from "zod";
 import { authenticate } from "../middleware/auth.middleware";

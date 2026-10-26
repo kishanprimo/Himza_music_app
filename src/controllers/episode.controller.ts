@@ -2,77 +2,9 @@ import { Request, Response } from "express";
 import EpisodeService from "../services/episode.service";
 import { response_service } from "../services";
 import formatDuration from "../helpers/durationOfAudio";
-// ================= ADD EPISODE =================
-// export async function addEpisode(req: Request, res: Response) {
-//   try {
-//     const audioFile = (req.files as any)?.episode_audio?.[0];
-
-//     if (!audioFile) {
-//       return response_service.badRequestResponse(
-//         res,
-//         "Episode audio file is required"
-//       );
-//     }
-
-//     const payload = {
-//       ...req.body,
-//       episode_audio: `uploads/episode_audio/${audioFile.filename}`,
-//     };
-
-//     const result = await EpisodeService.createEpisode(payload);
-
-//     return response_service.successResponse(
-//       res,
-//       "Episode added successfully",
-//       result
-//     );
-//   } catch (err: any) {
-//     return response_service.badRequestResponse(res, err.message);
-//   }
-// }
-// export async function addEpisode(req: Request, res: Response) {
-//   try {
-//     console.log("BODY:", req.body);
-//     console.log("FILES:", req.files);
-
-//     const { podcast_title, episode_title, episode_description } = req.body;
-
-//     if (!podcast_title || !episode_title || !episode_description) {
-//       return response_service.badRequestResponse(
-//         res,
-//         "podcast_title, episode_title and episode_description are required"
-//       );
-//     }
-
-//     const audioFile = (req.files as any)?.episode_audio?.[0];
-
-//     if (!audioFile) {
-//       return response_service.badRequestResponse(
-//         res,
-//         "Episode audio file is required"
-//       );
-//     }
-
-//     const payload = {
-//       podcast_title,
-//       episode_title,
-//       episode_description,
-//       episode_audio: `uploads/episode_audio/${audioFile.filename}`,
-//     };
-
-//     const result = await EpisodeService.createEpisode(payload);
-
-//     return response_service.successResponse(
-//       res,
-//       "Episode added successfully",
-//       result
-//     );
-//   } catch (err: any) {
-//     return response_service.badRequestResponse(res, err.message);
-//   }
-// }
 import { parseFile } from "music-metadata";
 import path from "path";
+import { logger } from "../utils";
 
 export async function addEpisode(req: Request, res: Response) {
   try {
@@ -100,7 +32,7 @@ export async function addEpisode(req: Request, res: Response) {
 
     const durationSeconds = metadata.format.duration || 0;
     const durationFormatted = formatDuration(durationSeconds);
-    console.log("durationFormatted", durationFormatted);
+   
 
     const payload = {
       podcast_title,
@@ -117,7 +49,7 @@ export async function addEpisode(req: Request, res: Response) {
       duration: durationFormatted,
     });
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to add episode"
@@ -207,7 +139,7 @@ export async function editEpisode(req: Request, res: Response) {
       }
     );
   } catch (err: any) {
-    console.error(err);
+    logger.error("Episode controller error:", err);
     return response_service.internalServerErrorResponse(
       res,
       err.message || "Failed to update episode"

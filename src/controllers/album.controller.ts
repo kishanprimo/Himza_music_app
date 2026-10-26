@@ -18,7 +18,6 @@ const {
 
 // create album =============================================
 async function createAlbum(req: Request, res: Response) {
-  console.log("create playlist", req.body);
 
   try {
     const user = req.user;
@@ -74,7 +73,6 @@ async function createAlbum(req: Request, res: Response) {
 }
 
 async function createPlaylist(req: Request, res: Response) {
-  console.log("create playlist", req.body);
 
   try {
     const user = req.user;
@@ -133,7 +131,6 @@ async function createPlaylist(req: Request, res: Response) {
 // Add songs to album =====================================================
 async function addSongsToAlbum(req: Request, res: Response) {
   try {
-    let user = req.user;
     let album;
     album = await album_service.getAlbum(
       { album_id: req.body.album_id },
@@ -294,7 +291,6 @@ async function addSongsToPlaylist(req: Request, res: Response) {
 
 // remove song from album ==================================================
 async function removeSongsFromAlbum(req: Request, res: Response) {
-  console.log(req.body);
   try {
     let user = req.user;
     let album;
@@ -342,7 +338,6 @@ async function removeSongsFromAlbum(req: Request, res: Response) {
 }
 
 async function removeSongsFromPlaylist(req: Request, res: Response) {
-  console.log(req.body);
 
   try {
     let user = req.user;
@@ -399,7 +394,6 @@ async function removeSongsFromPlaylist(req: Request, res: Response) {
 
 // search in playlist ================================================
 export async function searchPlaylist(req: Request, res: Response) {
-  console.log("Search Playlist", req.body);
 
   try {
     const userId = req.user?.user_id;
@@ -466,7 +460,6 @@ export async function removePlaylistSearchHistory(
   req: Request,
   res: Response
 ) {
-  console.log("Remove Playlist Search History", req.body);
   try {
     const userId = req.user?.user_id;
 
@@ -541,68 +534,6 @@ export async function getPlaylistSearchHistory(
 }
 
 // update album ====================================================
-async function updateAlbumold(req: Request, res: Response) {
-  try {
-    let album = await album_service.getAlbum({ album_id: req.body.album_id });
-    if (!album)
-      return response_service.badRequestResponse(
-        res,
-        "You are not the owner of this album."
-      );
-    if (album.is_private && req.user.user_id)
-      return response_service.badRequestResponse(res, "");
-    const files = req.files as
-      | { [fieldname: string]: Express.Multer.File[] }
-      | undefined;
-    let del_album;
-    if (files?.["album_thumbnail"]) del_album = album.thumbnail;
-
-    const album_data = {
-      ...req.body,
-      thumbnail: files?.["album_thumbnail"]?.[0].path,
-    };
-    album = await album_service.updateAlbum(album_data, {
-      album_id: req.body.album_id,
-    });
-
-    if (!album)
-      return response_service.badRequestResponse(
-        res,
-        "Failed to update album."
-      );
-    album = await album_service.getAlbum({ album_id: req.body.album_id }, [
-      {
-        model: AlbumSong,
-        as: "songs",
-        include: [
-          {
-            model: song,
-            as: "song",
-          },
-        ],
-      },
-      {
-        model: Genre,
-        as: "albumGenre",
-      },
-    ]);
-    if (del_album) {
-      const del_album_path = del_album.replace(config.clientUrl, "");
-      if (fs.existsSync(del_album_path)) {
-        fs.unlinkSync(del_album_path);
-      }
-    }
-    return response_service.successResponse(
-      res,
-      "Album updated successfully.",
-      album
-    );
-  } catch (err: any) {
-    logger.error("Error updating album:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
-  }
-}
-
 async function updateAlbum(req: Request, res: Response) {
   try {
     const { album_id, song_id } = req.body;
@@ -794,7 +725,6 @@ async function getAlbum(req: Request, res: Response) {
 // get all albums ========================================
 async function getAllAlbums(req: Request, res: Response) {
   try {
-    const user = req.user;
     const albums = await album_service.getAllAlbums(
       req.body.page,
       req.body.limit,
@@ -927,7 +857,6 @@ async function getFavoriteAlbums(req: Request, res: Response) {
 // search from favorite album list ========================================
 // search favorite albums =============================================
 async function searchFavoriteAlbums(req: Request, res: Response) {
-  console.log(req.body);
 
   try {
     const user = req.user;

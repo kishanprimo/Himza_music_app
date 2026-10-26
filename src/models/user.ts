@@ -57,12 +57,9 @@ module.exports = (sequelize: any, DataTypes: any) => {
         type: DataTypes.INTEGER,
         allowNull: true,
         // defaultValue: "",
-        references: {
-          model: "albums",
-          key: "album_id",
-        },
-        onDelete: "SET NULL",
-        onUpdate: "CASCADE",
+        // No `references` here: albums.user_id -> users already exists, and a users <-> albums
+        // FK cycle makes sequelize.sync() fall back to definition order, which fails when a
+        // referenced table (e.g. playlists) hasn't been created yet.
       },
       mobile_number: {
         type: DataTypes.STRING,
@@ -101,6 +98,7 @@ module.exports = (sequelize: any, DataTypes: any) => {
     User.belongsTo(models.Album, {
       foreignKey: "current_album_id",
       as: "currentAlbum",
+      constraints: false, // see current_album_id above
       // onDelete: "SET NULL",
       // onUpdate: "CASCADE",
     });

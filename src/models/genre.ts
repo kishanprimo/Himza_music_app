@@ -44,7 +44,7 @@ module.exports = (sequelize: any, DataTypes: any) => {
       as: "songs",
     });
     Genre.hasMany(models.Album, {
-      foreignKey: "album_id",
+      foreignKey: "genre_id",
       as: "album",
     });
     Genre.hasMany(models.singerGenre, {

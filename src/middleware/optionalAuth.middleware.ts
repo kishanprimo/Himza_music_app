@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { token_service, user_service } from "../services";
+import { token_service, user_service, admin_service } from "../services";
 
 export const optionalAuth = async (
   req: Request,
@@ -24,5 +24,32 @@ export const optionalAuth = async (
     next(); // always continue
   } catch (err) {
     next(); // ignore error
+  }
+};
+
+// Sets req.user only when a valid admin token is sent; never blocks the request.
+export const optionalAdminAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+
+    if (token) {
+      const { admin_id } = token_service.verifyAdminToken(token);
+
+      if (admin_id) {
+        const admin = await admin_service.getAdmin({ admin_id });
+
+        if (admin) {
+          req.user = admin;
+        }
+      }
+    }
+
+    next();
+  } catch (err) {
+    next();
   }
 };

@@ -1,13 +1,8 @@
 import db from "../models";
 
-const { SearchHistory, searchHistory, MusicSinger, User, favorites, Downloads } = db;
-import {
-  album_service,
-  genre_category_service,
-  song_service,
-  user_service,
-} from ".";
-import { and } from "sequelize";
+const { searchHistory, MusicSinger, User, favorites, Downloads, song, Album, Genre } = db;
+import { Op, fn, col } from "sequelize";
+import { logger } from "../utils";
 
 async function addToSearchHistory(
   userId: number,
@@ -121,12 +116,25 @@ async function getSearchHistory(
     // Convert to JSON
     let rows = searchHistorys.rows.map((search: any) => search.toJSON());
 
-    // Enrich data
-    rows = await Promise.all(
-      rows.map(async (search: any) => {
-        try {
-          if (search.type === "song") {
-            const song = await song_service.getSong(search.song_id, [
+    // Enrich data: one query per entry type for the whole page.
+    const idsOf = (type: string, key: string) => [
+      ...new Set(
+        rows
+          .filter((search: any) => search.type === type && search[key] != null)
+          .map((search: any) => Number(search[key]))
+      ),
+    ];
+    const songIds = idsOf("song", "song_id");
+    const artistIds = idsOf("artist", "artist_id");
+    const albumIds = idsOf("album", "album_id");
+    const genreIds = idsOf("genre", "genre_id");
+
+    const [songs, favoriteCounts, userFavorites, userDownloads, artists, albums, genres] =
+      await Promise.all([
+        songIds.length
+          ? song.findAll({
+            where: { song_id: { [Op.in]: songIds } },
+            include: [
               {
                 model: MusicSinger,
                 as: "artists",
@@ -134,104 +142,88 @@ async function getSearchHistory(
                   {
                     model: User,
                     as: "singer",
-                    attributes: [
-                      "user_id",
-                      "full_name",
-                      "profile_pic",
-                    ],
+                    attributes: ["user_id", "full_name", "profile_pic"],
                   },
                 ],
               },
-            ]);
+            ],
+          })
+          : [],
+        songIds.length
+          ? favorites.findAll({
+            where: { song_id: { [Op.in]: songIds } },
+            attributes: ["song_id", [fn("COUNT", col("song_id")), "total"]],
+            group: ["song_id"],
+            raw: true,
+          })
+          : [],
+        songIds.length
+          ? favorites.findAll({
+            where: { user_id: userId, song_id: { [Op.in]: songIds } },
+            attributes: ["song_id"],
+            raw: true,
+          })
+          : [],
+        songIds.length
+          ? Downloads.findAll({
+            where: { user_id: userId, song_id: { [Op.in]: songIds } },
+            attributes: ["song_id"],
+            raw: true,
+          })
+          : [],
+        artistIds.length
+          ? User.findAll({
+            where: { user_id: { [Op.in]: artistIds }, is_deleted: false },
+            attributes: ["user_id", "full_name", "profile_pic"],
+          })
+          : [],
+        albumIds.length
+          ? Album.findAll({ where: { album_id: { [Op.in]: albumIds } } })
+          : [],
+        genreIds.length
+          ? Genre.findAll({ where: { genre_id: { [Op.in]: genreIds } } })
+          : [],
+      ]);
 
-            // Song nahi hai to entry remove
-            if (!song) {
-              return null;
-            }
-
-            const [favorite, downloaded] = await Promise.all([
-              favorites.findOne({
-                where: {
-                  user_id: userId,
-                  song_id: song.song_id,
-                },
-              }),
-              Downloads.findOne({
-                where: {
-                  user_id: userId,
-                  song_id: song.song_id,
-                },
-              }),
-            ]);
-
-            return {
-              ...search,
-              song,
-              is_favorite: !!favorite,
-              is_downloaded: !!downloaded,
-            };
-          }
-
-          if (search.type === "artist") {
-            const artist = await user_service.getUser(
-              { user_id: search.artist_id },
-              [],
-              ["user_id", "full_name", "profile_pic"]
-            );
-
-            if (!artist) {
-              return null;
-            }
-
-            return {
-              ...search,
-              artist,
-            };
-          }
-
-          if (search.type === "album") {
-            const album = await album_service.getAlbum(
-              { album_id: search.album_id },
-              []
-            );
-
-            if (!album) {
-              return null;
-            }
-
-            return {
-              ...search,
-              album,
-            };
-          }
-
-          if (search.type === "genre") {
-            const genre =
-              await genre_category_service.getGenreById(
-                search.genre_id
-              );
-
-            if (!genre) {
-              return null;
-            }
-
-            return {
-              ...search,
-              genre,
-            };
-          }
-
-          return search;
-        } catch (e) {
-          console.warn(
-            `Failed to enrich ${search.type} ID in search history:`,
-            e
-          );
-
-          return null;
-        }
-      })
+    const favoriteCountMap = new Map<number, number>(
+      favoriteCounts.map((item: any) => [Number(item.song_id), Number(item.total)])
     );
+    const favoriteSet = new Set(userFavorites.map((item: any) => Number(item.song_id)));
+    const downloadSet = new Set(userDownloads.map((item: any) => Number(item.song_id)));
+    const byId = (list: any[], key: string) =>
+      new Map<number, any>(list.map((item: any) => [Number(item.get(key)), item.toJSON()]));
+    const songMap = byId(songs, "song_id");
+    const artistMap = byId(artists, "user_id");
+    const albumMap = byId(albums, "album_id");
+    const genreMap = byId(genres, "genre_id");
+
+    rows = rows.map((search: any) => {
+      if (search.type === "song") {
+        const id = Number(search.song_id);
+        const found = songMap.get(id);
+        // Song nahi hai to entry remove
+        if (!found) return null;
+        return {
+          ...search,
+          song: { ...found, favorite_count: favoriteCountMap.get(id) ?? 0 },
+          is_favorite: favoriteSet.has(id),
+          is_downloaded: downloadSet.has(id),
+        };
+      }
+      if (search.type === "artist") {
+        const artist = artistMap.get(Number(search.artist_id));
+        return artist ? { ...search, artist } : null;
+      }
+      if (search.type === "album") {
+        const album = albumMap.get(Number(search.album_id));
+        return album ? { ...search, album } : null;
+      }
+      if (search.type === "genre") {
+        const genre = genreMap.get(Number(search.genre_id));
+        return genre ? { ...search, genre } : null;
+      }
+      return search;
+    });
 
     // Remove unavailable records
     rows = rows.filter(Boolean);
@@ -250,7 +242,7 @@ async function getSearchHistory(
       },
     };
   } catch (err) {
-    console.error("Error fetching search history:", err);
+    logger.error("Error fetching search history:", err);
     throw err;
   }
 }

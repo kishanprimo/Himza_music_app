@@ -1,4 +1,3 @@
-import { log } from "console";
 import db from "../models";
 
 const { User } = db;

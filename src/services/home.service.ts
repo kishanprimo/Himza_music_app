@@ -1,10 +1,9 @@
 import db from "../models";
 
 const { Album, Genre, HomeBlocks, MusicSinger, song, User, Downloads, favorites, favoriteArtists, favoriteAlbums } = db;
-import { IHomeBlocks, ISong } from "../types";
-import removeExtraFields from "./common/removeExtraFields.service";
-import { genre_category_service, user_service } from ".";
+import { IHomeBlocks } from "../types";
 import { Sequelize } from "sequelize";
+import { Op, fn, col } from "sequelize";
 
 async function getAllSongsByGenre(
   page: number = 1,
@@ -18,62 +17,6 @@ async function getAllSongsByGenre(
       offset,
     });
     return genres.map((genre: any) => genre.toJSON());
-  } catch (err) {
-    throw err;
-  }
-}
-
-async function addBlockold(
-  blockPayload: Partial<IHomeBlocks>
-): Promise<IHomeBlocks> {
-  try {
-    const { type } = blockPayload;
-
-    if (!type) {
-      throw new Error("Block type is required.");
-    }
-
-    const hasAlbumIds = blockPayload.album_ids?.length;
-    const hasSongIds = blockPayload.song_ids?.length;
-    const hasGenreIds = blockPayload.genre_ids?.length;
-    const hasArtistIds = blockPayload.artist_ids?.length;
-
-    if (type === "album") {
-      if (hasSongIds || hasGenreIds || hasArtistIds) {
-        throw new Error(
-          "For album type, only album_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "song") {
-      if (hasAlbumIds || hasGenreIds || hasArtistIds) {
-        throw new Error(
-          "For song type, only song_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "genre") {
-      if (hasAlbumIds || hasSongIds || hasArtistIds) {
-        throw new Error(
-          "For genre type, only genre_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "artist") {
-      if (hasAlbumIds || hasSongIds || hasGenreIds) {
-        throw new Error(
-          "For artist type, only artist_ids are allowed."
-        );
-      }
-    }
-
-    // mix → allow everything
-
-    const block = await HomeBlocks.create(blockPayload);
-    return block.toJSON();
   } catch (err) {
     throw err;
   }
@@ -137,11 +80,6 @@ async function addBlock(
       maxOrderId !== null && maxOrderId !== undefined
         ? Number(maxOrderId) + 1
         : 1;
-
-    console.log("=================================");
-    console.log("MAX ORDER ID:", maxOrderId);
-    console.log("NEW ORDER ID:", newOrderId);
-    console.log("=================================");
 
     const block = await HomeBlocks.create({
       ...blockPayload,
@@ -246,7 +184,8 @@ async function removeDataFromBlock(
 
 async function getAllBlocks(): Promise<{ blocks: Partial<IHomeBlocks>[] }> {
   try {
-    const { count, rows } = await HomeBlocks.findAndCountAll({
+    // Only the rows are used, so skip the extra COUNT query.
+    const rows = await HomeBlocks.findAll({
       where: { is_deleted: false },
       order: [["order_id", "ASC"]],
       attributes: [
@@ -290,18 +229,9 @@ async function getBlock(
   pageSize: number = 20,
   userId: number,
 ): Promise<Partial<IHomeBlocks> | null> {
-  console.log("getBlock called with:", { blockId });
+
   try {
     const block = (await HomeBlocks.findByPk(blockId)) as any;
-
-    console.log("EDIT BLOCK DB:", {
-      block_id: block?.block_id,
-      type: block?.type,
-      song_ids: block?.song_ids,
-      album_ids: block?.album_ids,
-      genre_ids: block?.genre_ids,
-      artist_ids: block?.artist_ids,
-    });
 
     if (!block) return null;
 
@@ -326,44 +256,56 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      // const albums = await Promise.all(
-      //   paginatedIds.map((id: number) => Album.findByPk(id))
-      // );
-      // data.push(
-      //   ...albums.map((album: any) => ({
-      //     album_id: album?.album_id,
-      //     thumbnail: album?.thumbnail,
-      //     title: album?.title,
-      //     subtitle: album?.subtitle,
-      //     description: album?.description,
-      //   }))
-      // );
 
-      const albums = await Promise.all(
-        paginatedIds.map(async (id: number) => {
+      const albums = paginatedIds.length
+        ? await Album.findAll({
+          where: { album_id: { [Op.in]: paginatedIds } },
+          attributes: [
+            "album_id",
+            "thumbnail",
+            "title",
+            "subtitle",
+            "description",
+          ],
+        })
+        : [];
 
-          const album: any = await Album.findByPk(id);
+      const favoriteAlbumRows = userId && paginatedIds.length
+        ? await favoriteAlbums.findAll({
+          where: {
+            user_id: userId,
+            album_id: { [Op.in]: paginatedIds },
+          },
+          attributes: ["album_id"],
+          raw: true,
+        })
+        : [];
 
-          const isFavorite = userId
-            ? !!(await favoriteAlbums.findOne({
-              where: { user_id: userId, album_id: id },
-            }))
-            : false;
+      const favoriteAlbumIds = new Set(
+        favoriteAlbumRows.map((item: any) => Number(item.album_id))
+      );
 
-          if (!album) return null;
-
-          return {
-            album_id: album?.album_id,
-            is_favorite: !!isFavorite, // ⭐ ye new field
-            thumbnail: album?.thumbnail,
-            title: album?.title,
-            subtitle: album?.subtitle,
-            description: album?.description,
-          };
+      const albumMap = new Map(
+        // get({ plain: true }) keeps the model getters (thumbnail URL prefix).
+        albums.map((item: any) => {
+          const album = item.get({ plain: true });
+          return [Number(album.album_id), album];
         })
       );
 
-      data.push(...albums.filter(Boolean));
+      data.push(
+        ...paginatedIds
+          .map((id: number) => {
+            const album: any = albumMap.get(Number(id));
+            if (!album) return null;
+
+            return {
+              ...album,
+              is_favorite: favoriteAlbumIds.has(Number(id)),
+            };
+          })
+          .filter(Boolean)
+      );
     }
     // song block ===========================================
     if (block.type === "song" || (isMix && limits["song"])) {
@@ -375,69 +317,87 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      const songs = await Promise.all(
-        paginatedIds.map(async (id: number) => {
-
-          console.log("FETCHING SONG ID:", id);
-
-          const Song = (await song.findByPk(id, {
-            include: [
-              {
-                model: MusicSinger,
-                as: "artists",
-                include: [
-                  {
-                    model: User,
-                    as: "singer",
-                    attributes: ["full_name", "profile_pic"],
-                  },
-                ],
-              },
-            ],
-          })) as Partial<ISong>;
-
-          console.log("FOUND SONG:", {
-            id,
-            song_id: Song?.song_id,
-            title: Song?.title,
-            audio: Song?.audio,
-          });
-
-          const is_favorite = await favorites.findOne({
-            where: { user_id: userId, song_id: id },
-          });
-          const is_downloaded = await Downloads.findOne({
-            where: { user_id: userId, song_id: id },
-          });
-
-          if (!Song) {
-            console.log("❌ SONG NOT FOUND:", id);
-            return null;
-          }
-          return {
-            song_id: Song.song_id,
-            is_favorite: !!is_favorite,
-            is_downloaded: !!is_downloaded,
-            thumbnail: Song.thumbnail,
-            audio: Song.audio,
-            title: Song.title,
-            artists: {
-              artist:
-                Song.artists?.map((artist: any) => ({
-                  user_id: artist.user_id,
-                  full_name: artist.singer.full_name,
-                  profile_pic: artist.singer.profile_pic,
-                })) || [],
+      const songs = paginatedIds.length
+        ? await song.findAll({
+          where: { song_id: { [Op.in]: paginatedIds } },
+          include: [
+            {
+              model: MusicSinger,
+              as: "artists",
+              include: [
+                {
+                  model: User,
+                  as: "singer",
+                  attributes: ["full_name", "profile_pic"],
+                },
+              ],
             },
-          };
+          ],
+        })
+        : [];
+
+      const [favoriteRows, downloadedRows] = userId && paginatedIds.length
+        ? await Promise.all([
+          favorites.findAll({
+            where: {
+              user_id: userId,
+              song_id: { [Op.in]: paginatedIds },
+            },
+            attributes: ["song_id"],
+            raw: true,
+          }),
+          Downloads.findAll({
+            where: {
+              user_id: userId,
+              song_id: { [Op.in]: paginatedIds },
+            },
+            attributes: ["song_id"],
+            raw: true,
+          }),
+        ])
+        : [[], []];
+
+      const favoriteSongIds = new Set(
+        favoriteRows.map((item: any) => Number(item.song_id))
+      );
+
+      const downloadedSongIds = new Set(
+        downloadedRows.map((item: any) => Number(item.song_id))
+      );
+
+      const songMap = new Map(
+        songs.map((item: any) => {
+          const plainSong = item.get({ plain: true });
+          return [Number(plainSong.song_id), plainSong];
         })
       );
 
-      console.log("FINAL SONGS:", songs);
+      data.push(
+        ...paginatedIds
+          .map((id: number) => {
+            const Song: any = songMap.get(Number(id));
+            if (!Song) return null;
 
+            return {
+              song_id: Song.song_id,
+              is_favorite: favoriteSongIds.has(Number(id)),
+              is_downloaded: downloadedSongIds.has(Number(id)),
+              thumbnail: Song.thumbnail,
+              audio: Song.audio,
+              title: Song.title,
+              artists: {
+                artist:
+                  Song.artists?.map((artist: any) => ({
+                    user_id: artist.user_id,
+                    full_name: artist.singer?.full_name,
+                    profile_pic: artist.singer?.profile_pic,
+                  })) || [],
+              },
+            };
+          })
+          .filter(Boolean)
+      );
 
-
-      data.push(...songs.filter(Boolean)); // filter out nulls
     }
 
     // genre block ============================================
@@ -450,13 +410,14 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      const genres = await Promise.all(
-        paginatedIds.map((id: number) =>
-          genre_category_service.getGenreById(id)
-        )
+      const genreRows = paginatedIds.length
+        ? await Genre.findAll({ where: { genre_id: { [Op.in]: paginatedIds } } })
+        : [];
+      const genreMap = new Map<number, any>(
+        genreRows.map((item: any) => [Number(item.genre_id), item.toJSON()])
       );
       data.push(
-        ...genres.map((genre: any) => ({
+        ...paginatedIds.map((id: number) => genreMap.get(Number(id))).map((genre: any) => ({
           genre_id: genre?.genre_id,
           name: genre?.name,
           background_img: genre?.background_img,
@@ -475,37 +436,75 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      const artists = await Promise.all(
-        paginatedIds.map((id: number) =>
-          user_service.getUser({ user_id: id.toString() })
-        )
+
+      const artists = paginatedIds.length
+        ? await User.findAll({
+          // Same filter as user_service.getUser: deleted artists are not shown.
+          where: { user_id: { [Op.in]: paginatedIds }, is_deleted: false },
+          attributes: ["user_id", "full_name", "profile_pic"],
+        })
+        : [];
+
+      const [songsCounts, favoriteArtistRows] = paginatedIds.length
+        ? await Promise.all([
+          MusicSinger.findAll({
+            attributes: [
+              "user_id",
+              [fn("COUNT", col("user_id")), "total"],
+            ],
+            where: { user_id: { [Op.in]: paginatedIds } },
+            group: ["user_id"],
+            raw: true,
+          }),
+          userId
+            ? favoriteArtists.findAll({
+              where: {
+                user_id: userId,
+                artist_user_id: { [Op.in]: paginatedIds },
+              },
+              attributes: ["artist_user_id"],
+              raw: true,
+            })
+            : [],
+        ])
+        : [[], []];
+
+      const artistSongsMap = new Map(
+        songsCounts.map((item: any) => [
+          Number(item.user_id),
+          Number(item.total),
+        ])
+      );
+
+      const favoriteArtistIds = new Set(
+        favoriteArtistRows.map((item: any) => Number(item.artist_user_id))
+      );
+
+      const artistMap = new Map(
+        // get({ plain: true }) keeps the model getters (profile_pic URL prefix).
+        artists.map((item: any) => {
+          const artist = item.get({ plain: true });
+          return [Number(artist.user_id), artist];
+        })
       );
 
       data.push(
-        ...(await Promise.all(
-          artists.map(async (artist: any) => {
-            const songs_count = await MusicSinger.count({
-              where: { user_id: artist["user_id"] },
-            });
-
-            // 🔥 favorite check
-            const fav = await favoriteArtists.findOne({
-              where: {
-                user_id: userId,
-                artist_user_id: artist["user_id"],
-              },
-            });
+        ...paginatedIds
+          .map((id: number) => {
+            const artist: any = artistMap.get(Number(id));
+            if (!artist) return null;
 
             return {
-              user_id: artist["user_id"],
-              full_name: artist["full_name"],
-              profile_pic: artist["profile_pic"],
-              songs_count,
-              artist_favorite: !!fav,
+              user_id: artist.user_id,
+              full_name: artist.full_name,
+              profile_pic: artist.profile_pic,
+              songs_count: artistSongsMap.get(Number(id)) ?? 0,
+              artist_favorite: favoriteArtistIds.has(Number(id)),
             };
           })
-        ))
+          .filter(Boolean)
       );
+
     }
 
     return {
@@ -520,7 +519,6 @@ async function getBlock(
       artist_count,
       is_visible: block.is_visible,
       order_id: block.order_id,
-      // data: data.sort(() => Math.random() - 0.5),
       data: data,
       pagination: {
         page: parseInt(page.toString()),

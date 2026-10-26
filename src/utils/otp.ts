@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { logger } from "./logger";
 import { config, emailConfig } from '../config';
 import axios from 'axios';
-import process from 'process';
+import { randomInt } from 'crypto';
 
 const accountSid = config.TWILIO_ACCOUNT_SID;
 const authToken = config.TWILIO_AUTH_TOKEN;
@@ -29,7 +29,7 @@ async function sendTwilioOTP(country_code: string, mobile_num: string, otp: stri
             return false
         }
     } catch (err) {
-        console.error("Error sending otp in twilio:", err);
+        logger.error("Error sending otp in twilio:", err);
         return false; // Error occurred while sending email
     }
 }
@@ -56,15 +56,15 @@ async function sendMesg91TP(country_code: string, mobile_num: string, otp: strin
             return false
         }
     } catch (err) {
-        console.error("Error sending otp in Message91:", err);
+        logger.error("Error sending otp in Message91:", err);
         return false; // Error occurred while sending email
     }
 }
 
 
+// Secure random 4-digit OTP (Math.random is predictable).
 function generateOTP() {
-    const otp = Math.floor(1000 + Math.random() * 9000);
-    return otp.toString();
+    return randomInt(1000, 10000).toString();
 }
 
 const sendEmailOTP = async (email: string, otp: string) => {
@@ -83,14 +83,6 @@ const sendEmailOTP = async (email: string, otp: string) => {
         }
     });
 
-    console.log({
-        service: emailConfig.service,
-        host: emailConfig.host,
-        port: emailConfig.port,
-        user: emailConfig.user,
-        pass: emailConfig.pass ? "******" : "EMPTY"
-    });
-
     const mailOptions = {
         from: emailConfig.user,
         to: email,
@@ -102,7 +94,6 @@ const sendEmailOTP = async (email: string, otp: string) => {
         const info = await transporter.sendMail(mailOptions);
         return info
     } catch (err) {
-        console.error("Email Error:", err);
         logger.error("Error sending email:", err);
         return false;
     }

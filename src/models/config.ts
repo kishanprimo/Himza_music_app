@@ -1,5 +1,7 @@
 
 
+import { config } from '../config';
+
 module.exports = (sequelize: any, DataTypes: any) => {
   const Config = sequelize.define(
     "Config",
@@ -15,12 +17,8 @@ module.exports = (sequelize: any, DataTypes: any) => {
         allowNull: true,
         defaultValue: "",
         get(this: any): string {       
-          const raw_urls: string = this.getDataValue("logo_light");
-          const imageUrls = `${process.env.CLIENT_URL}${raw_urls}`;
-          return imageUrls != process.env.CLIENT_URL ||
-            "http://192.168.1.100:3002"
-            ? imageUrls
-            : ``;
+          const raw_url: string = this.getDataValue("logo_light");
+          return raw_url ? config.clientUrl + raw_url : "";
         },
       },
       logo_dark: {
@@ -28,12 +26,8 @@ module.exports = (sequelize: any, DataTypes: any) => {
         allowNull: true,
         defaultValue: "",
         get(this: any): string {       
-          const raw_urls = this.getDataValue("logo_dark");
-          const imageUrls = `${process.env.CLIENT_URL}${raw_urls}`;
-          return imageUrls != process.env.CLIENT_URL ||
-            "http://192.168.1.100:3002"
-            ? imageUrls
-            : ``;
+          const raw_url: string = this.getDataValue("logo_dark");
+          return raw_url ? config.clientUrl + raw_url : "";
         },
       },
       app_name: {

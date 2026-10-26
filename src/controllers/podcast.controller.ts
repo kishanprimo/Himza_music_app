@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import PodcastService from "../services/podcast.service";
-import { podcast_service, response_service } from "../services";
-import config from "../config/config";
+import { response_service } from "../services";
 
 // CREATE PODCAST =====================================
 export async function createPodcast(req: Request, res: Response) {
@@ -78,11 +77,7 @@ export async function getPodcastById(req: Request, res: Response) {
 
 export async function editPodcast(req: Request, res: Response) {
   try {
-    console.log("podcas111t",req.body);
-    const { podcast_id, description, author_name } = req.body;
-    console.log("podcast",req.body);
-    
-
+    const { podcast_id, description, author_name } = req.body;  
     if (!podcast_id) {
       return response_service.badRequestResponse(res, "podcast_id is required.");
     }
