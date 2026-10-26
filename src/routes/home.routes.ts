@@ -1,9 +1,7 @@
 import { Router } from "express";
 import { getAllBlocks, getBlockById, songsByGenre } from "../controllers/home.controller";
 import { validateBody } from "../middleware/zod.middleware";
-import { paginationSchema } from "../zod/pagenation.validator";
 import { z } from "zod";
-import { authenticate } from "../middleware/auth.middleware";
 import { optionalAuth } from "../middleware/optionalAuth.middleware";
 
 const router = Router();

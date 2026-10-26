@@ -1,9 +1,7 @@
 import db from "../models";
 
 const { Album, Genre, HomeBlocks, MusicSinger, song, User, Downloads, favorites, favoriteArtists, favoriteAlbums } = db;
-import { IHomeBlocks, ISong } from "../types";
-import removeExtraFields from "./common/removeExtraFields.service";
-import { genre_category_service, user_service } from ".";
+import { IHomeBlocks } from "../types";
 import { Sequelize } from "sequelize";
 import { Op, fn, col } from "sequelize";
 
@@ -19,62 +17,6 @@ async function getAllSongsByGenre(
       offset,
     });
     return genres.map((genre: any) => genre.toJSON());
-  } catch (err) {
-    throw err;
-  }
-}
-
-async function addBlockold(
-  blockPayload: Partial<IHomeBlocks>
-): Promise<IHomeBlocks> {
-  try {
-    const { type } = blockPayload;
-
-    if (!type) {
-      throw new Error("Block type is required.");
-    }
-
-    const hasAlbumIds = blockPayload.album_ids?.length;
-    const hasSongIds = blockPayload.song_ids?.length;
-    const hasGenreIds = blockPayload.genre_ids?.length;
-    const hasArtistIds = blockPayload.artist_ids?.length;
-
-    if (type === "album") {
-      if (hasSongIds || hasGenreIds || hasArtistIds) {
-        throw new Error(
-          "For album type, only album_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "song") {
-      if (hasAlbumIds || hasGenreIds || hasArtistIds) {
-        throw new Error(
-          "For song type, only song_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "genre") {
-      if (hasAlbumIds || hasSongIds || hasArtistIds) {
-        throw new Error(
-          "For genre type, only genre_ids are allowed."
-        );
-      }
-    }
-
-    if (type === "artist") {
-      if (hasAlbumIds || hasSongIds || hasGenreIds) {
-        throw new Error(
-          "For artist type, only artist_ids are allowed."
-        );
-      }
-    }
-
-    // mix → allow everything
-
-    const block = await HomeBlocks.create(blockPayload);
-    return block.toJSON();
   } catch (err) {
     throw err;
   }
@@ -242,7 +184,8 @@ async function removeDataFromBlock(
 
 async function getAllBlocks(): Promise<{ blocks: Partial<IHomeBlocks>[] }> {
   try {
-    const { count, rows } = await HomeBlocks.findAndCountAll({
+    // Only the rows are used, so skip the extra COUNT query.
+    const rows = await HomeBlocks.findAll({
       where: { is_deleted: false },
       order: [["order_id", "ASC"]],
       attributes: [
@@ -313,19 +256,6 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      // const albums = await Promise.all(
-      //   paginatedIds.map((id: number) => Album.findByPk(id))
-      // );
-      // data.push(
-      //   ...albums.map((album: any) => ({
-      //     album_id: album?.album_id,
-      //     thumbnail: album?.thumbnail,
-      //     title: album?.title,
-      //     subtitle: album?.subtitle,
-      //     description: album?.description,
-      //   }))
-      // );
-
 
       const albums = paginatedIds.length
         ? await Album.findAll({
@@ -386,71 +316,6 @@ async function getBlock(
       const allIds = block.song_ids || [];
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
-
-      // const songs = await Promise.all(
-      //   paginatedIds.map(async (id: number) => {
-
-      //     console.log("FETCHING SONG ID:", id);
-
-      //     const Song = (await song.findByPk(id, {
-      //       include: [
-      //         {
-      //           model: MusicSinger,
-      //           as: "artists",
-      //           include: [
-      //             {
-      //               model: User,
-      //               as: "singer",
-      //               attributes: ["full_name", "profile_pic"],
-      //             },
-      //           ],
-      //         },
-      //       ],
-      //     })) as Partial<ISong>;
-
-      //     console.log("FOUND SONG:", {
-      //       id,
-      //       song_id: Song?.song_id,
-      //       title: Song?.title,
-      //       audio: Song?.audio,
-      //     });
-
-      //     const is_favorite = await favorites.findOne({
-      //       where: { user_id: userId, song_id: id },
-      //     });
-      //     const is_downloaded = await Downloads.findOne({
-      //       where: { user_id: userId, song_id: id },
-      //     });
-
-      //     if (!Song) {
-      //       console.log("❌ SONG NOT FOUND:", id);
-      //       return null;
-      //     }
-      //     return {
-      //       song_id: Song.song_id,
-      //       is_favorite: !!is_favorite,
-      //       is_downloaded: !!is_downloaded,
-      //       thumbnail: Song.thumbnail,
-      //       audio: Song.audio,
-      //       title: Song.title,
-      //       artists: {
-      //         artist:
-      //           Song.artists?.map((artist: any) => ({
-      //             user_id: artist.user_id,
-      //             full_name: artist.singer.full_name,
-      //             profile_pic: artist.singer.profile_pic,
-      //           })) || [],
-      //       },
-      //     };
-      //   })
-      // );
-
-      // console.log("FINAL SONGS:", songs);
-
-
-
-      // data.push(...songs.filter(Boolean)); // filter out nulls
-
 
       const songs = paginatedIds.length
         ? await song.findAll({
@@ -545,13 +410,14 @@ async function getBlock(
       const paginatedIds = allIds.slice(start, end);
       total += allIds.length;
 
-      const genres = await Promise.all(
-        paginatedIds.map((id: number) =>
-          genre_category_service.getGenreById(id)
-        )
+      const genreRows = paginatedIds.length
+        ? await Genre.findAll({ where: { genre_id: { [Op.in]: paginatedIds } } })
+        : [];
+      const genreMap = new Map<number, any>(
+        genreRows.map((item: any) => [Number(item.genre_id), item.toJSON()])
       );
       data.push(
-        ...genres.map((genre: any) => ({
+        ...paginatedIds.map((id: number) => genreMap.get(Number(id))).map((genre: any) => ({
           genre_id: genre?.genre_id,
           name: genre?.name,
           background_img: genre?.background_img,

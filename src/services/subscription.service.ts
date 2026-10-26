@@ -1,4 +1,4 @@
-import { ISubscriptionPlans, IUser } from "../types";
+import { ISubscriptionPlans } from "../types";
 import db from "../models";
 
 const { SunscriptionPlans, User, SubscribedUsers } = db;

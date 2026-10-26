@@ -1,6 +1,6 @@
 import db from "../models";
 
-const { Song, song, Album, User,favorites,Downloads } = db;
+const { song, Album, User,favorites,Downloads } = db;
 import { Op } from "sequelize";
 
 interface SearchResult {
@@ -37,22 +37,6 @@ async function search(
       albums: { data: [], total: 0 },
     };
 
-    // if (!type || type === 'song') {
-    //   const songsResult = await song.findAndCountAll({
-    //     where: {
-    //       title: {
-    //         [Op.iLike]: `${searchTerm}%`
-    //       }
-    //     },
-    //     limit,
-    //     offset
-    //   });
-    //   result.songs = {
-    //     data: songsResult.rows.map((song:any) => song.toJSON()),
-    //     total: songsResult.count
-    //   };
-    //   result.length += songsResult.count;
-    // }
     if (!type || type === "song") {
       const songsResult = await song.findAndCountAll({
         where: {

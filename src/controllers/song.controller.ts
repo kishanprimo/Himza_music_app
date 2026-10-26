@@ -23,7 +23,6 @@ const {
   favorites,
   Downloads,
 } = db;
-import { log } from "console";
 
 async function getSong(req: Request, res: Response) {
   try {
@@ -94,166 +93,13 @@ async function setDownloaded(req: Request, res: Response) {
     const songId = parseInt(req.body.song_id);
     const song = await song_service.getSong(songId);
     if (!song) return response_service.notFoundResponse(res, "Song not found.");
-    const isDownloaded = await song_service.setDownloaded(user.user_id, songId);
+    await song_service.setDownloaded(user.user_id, songId);
     return response_service.successResponse(
       res,
       `Song marked as downloaded: true.`,
     );
   } catch (err: any) {
     logger.error("Error setting downloaded:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
-  }
-}
-
-async function getMySongs_old(req: Request, res: Response) {
-  try {
-    const artist = await user_service.getUser(
-      { user_id: req.body.artist_id, is_singer: true },
-      [],
-      ["user_id", "full_name", "profile_pic"],
-    );
-
-    const page = parseInt(req.body.page) || 1;
-    const limit = parseInt(req.body.limit) || 10;
-
-    if (!artist)
-      return response_service.notFoundResponse(res, "Artist not found.");
-    let is_favorite = false;
-    let artist_favorite = false;
-
-
-    if (req.user.user_id)
-      is_favorite = await singer_service.isfavorite(
-        req.user.user_id,
-        req.body.artist_id,
-      );
-
-    if (req.user.user_id) {
-      const fav = await favoriteArtists.findOne({
-        where: {
-          user_id: req.user.user_id,
-          artist_user_id: req.body.artist_id,
-        },
-      });
-
-      artist_favorite = fav ? true : false;
-    }
-
-    const songs_count = await singer_service.mySongsCount(
-      parseInt(req.body.artist_id),
-    );
-    const likes_count = await favoriteArtists.count({
-      where: { artist_user_id: req.body.artist_id },
-    });
-
-    let songs: any = await singer_service.mySongs(
-      parseInt(req.body.artist_id),
-      page,
-      limit
-    );
-
-    const formattedSongs = await Promise.all(
-      songs.data.map(async (song: any) => {
-        const { singer, ...rest } = song;
-
-        return {
-          ...rest,
-          singer: {
-            ...singer,
-            is_favorite,
-            songs_count,
-            likes_count,
-          },
-          artist_favorite,
-          is_favorite: req.user.user_id
-            ? await song_service.isfavorite(req.user?.user_id, song.song_id)
-            : false,
-          is_downloaded: req.user.user_id
-            ? await song_service.isDownloaded(req.user?.user_id, song.song_id)
-            : false,
-          likes_count: await favorites.count({
-            where: { song_id: song.song_id },
-          }),
-        };
-      })
-    );
-    if (formattedSongs.length > 0) {
-      return response_service.successResponse(
-        res,
-        "Songs fetched successfully.",
-        {
-          artist_favorite,
-          pagination: {
-            total: songs.total,
-            page: songs.page,
-            pageSize: songs.pageSize,
-            totalPages: songs.totalPages,
-          },
-          data: formattedSongs,
-        }
-      );
-    } else {
-      const singer = await user_service.getUser(
-        { user_id: req.body.artist_id, is_singer: true },
-        [],
-        ["user_id", "full_name", "profile_pic"]
-      );
-
-      let is_favorite = false;
-
-      if (req.user.user_id) {
-        is_favorite = await singer_service.isfavorite(
-          req.user.user_id,
-          req.body.artist_id
-        );
-      }
-
-      const songs_count = await singer_service.mySongsCount(
-        parseInt(req.body.artist_id)
-      );
-
-      // return response_service.successResponse(
-      //   res,
-      //   "Songs fetched successfully.",
-      //   {
-      //     artist_favorite,
-      //     pagination: {
-      //       total: 0,
-      //       page,
-      //       pageSize: limit,
-      //       totalPages: 0,
-      //     },
-      //     data: [
-      //       {
-      //         singer: {
-      //           ...singer,
-      //           is_favorite,
-      //           songs_count,
-      //         },
-      //       },
-      //     ],
-      //   }
-      // );
-
-      if (formattedSongs.length === 0) {
-        return response_service.successResponse(
-          res,
-          "Songs fetched successfully.",
-          {
-            artist_favorite,
-            pagination: {
-              total: songs.total,
-              page: songs.page,
-              pageSize: songs.pageSize,
-              totalPages: songs.totalPages,
-            },
-            data: [],
-          }
-        );
-      }
-    }
-  } catch (err: any) {
-    logger.error("Error fetching songs:", err);
     return response_service.internalServerErrorResponse(res, err.message);
   }
 }
@@ -472,8 +318,7 @@ async function createMusic(req: Request, res: Response) {
       const isSinger = await singer_service.isSinger(singerId);
 
       if (isSinger) {
-        const songSinger =
-          await singer_service.addSongToArtist(
+        await singer_service.addSongToArtist(
             Number(song.song_id),
             singerId,
           );
@@ -507,16 +352,6 @@ async function updateSong(req: Request, res: Response) {
       | undefined;
     let updatedData: any = { ...req.body };
 
-
-    // if (updatedData.artist_ids) {
-    //   try {
-    //     if (typeof updatedData.artist_ids === "string") {
-    //       updatedData.artist_ids = JSON.parse(updatedData.artist_ids);
-    //     }
-    //   } catch (error) {
-    //     updatedData.artist_ids = [];
-    //   }
-    // }
 
     if (files && files["audio"]) {
       updatedData.audio = files["audio"][0].path;

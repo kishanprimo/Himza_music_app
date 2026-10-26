@@ -61,26 +61,6 @@ async function createAd(req: Request, res: Response) {
     if (files && files["ad_banner"]) {
       req.body.banner = files["ad_banner"][0].path;
     }
-    // if (req.body.type == "video" || req.body.type == "in-song") {
-    //   if (files && files["ad_video"]) {
-    //     req.body.video = files["ad_video"][0].path;
-
-    //   } else {
-    //     return response_service.badRequestResponse(
-    //       res,
-    //       "Video is required for video ads."
-    //     );
-    //   }
-
-    //   // if (files && files["ad_audio"]) {
-    //   //   req.body.audio = files["ad_audio"][0].path;
-    //   // } else {
-    //   //   return response_service.badRequestResponse(
-    //   //     res,
-    //   //     "Audio is required for video ads."
-    //   //   );
-    //   // }
-    // }
 
     if (req.body.type === "video" || req.body.type === "in-song") {
       if (files && files["ad_video"]) {

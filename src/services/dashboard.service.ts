@@ -294,17 +294,10 @@ async function usersByLogin() {
       order: [[literal(`count`), "DESC"]],
     });
     const data = result.map((row: any) => row.toJSON());
-    let total = 0;
-    await Promise.all(
-      data.map(async (user: any) => {
-        total += Number(user.count);
-      })
-    );
-    await Promise.all(
-      data.map(async (user: any) => {
-        user.count_percentage = (Number(user.count) / total) * 100;
-      })
-    );
+    const total = data.reduce((sum: number, user: any) => sum + Number(user.count), 0);
+    data.forEach((user: any) => {
+      user.count_percentage = (Number(user.count) / total) * 100;
+    });
     return data;
   } catch (err) {
     throw err;

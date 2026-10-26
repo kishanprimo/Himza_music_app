@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import PodcastService from "../services/podcast.service";
-import { podcast_service, response_service } from "../services";
-import config from "../config/config";
+import { response_service } from "../services";
 
 // CREATE PODCAST =====================================
 export async function createPodcast(req: Request, res: Response) {

@@ -1,7 +1,8 @@
 import { IMovie, ISong } from "../types";
 import db from "../models";
+import { Op } from "sequelize";
 
-const { Movie, MovieSongConnection, Song } = db;
+const { Movie, MovieSongConnection } = db;
 async function getAllMovies(page: number = 1, limit: number = 10, include?: any): Promise<{ movies: any[]; total: number; page: number; limit: number; totalPages: number }> {
     try {
         const offset = (page - 1) * limit;
@@ -67,8 +68,11 @@ async function deleteMovie(movieId: number): Promise<null> {
 
 async function addSongsToMovie(songIds: string[], movieId: number): Promise<ISong[] | null> {
     try {
-        const songs = await Promise.all(songIds.map((song_id: string) => MovieSongConnection.create({ movie_id: movieId, song_id: song_id })));
-        return songs.map(s => s.toJSON());
+        const songs = await MovieSongConnection.bulkCreate(
+            songIds.map((song_id: string) => ({ movie_id: movieId, song_id })),
+            { returning: true }
+        );
+        return songs.map((s: any) => s.toJSON());
     }
     catch (err) {
         throw err;
@@ -77,8 +81,16 @@ async function addSongsToMovie(songIds: string[], movieId: number): Promise<ISon
 
 async function removeSongsFromMovie(songIds: string[], movieId: number): Promise<number[] | null> {
     try {
-        const songs = await Promise.all(songIds.map(async (song_id: string) => await MovieSongConnection.destroy({ where: { movie_id: movieId, song_id: song_id } })));
-        return songs;
+        // Same result as before: removed link count per requested song.
+        const where = { movie_id: movieId, song_id: { [Op.in]: songIds } };
+        const existing = await MovieSongConnection.findAll({ where, attributes: ["song_id"], raw: true });
+        await MovieSongConnection.destroy({ where });
+        const removed = new Map<string, number>();
+        for (const row of existing) {
+            const key = String(row.song_id);
+            removed.set(key, (removed.get(key) ?? 0) + 1);
+        }
+        return songIds.map((id) => removed.get(String(id)) ?? 0);
     }
     catch (err) {
         throw err;

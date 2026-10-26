@@ -11,11 +11,9 @@ import {
   getAllSongs,
   getDownloadedSongs,
   getTrendingSongs,
-  deleteSong,
   searchDownloadedSongs,
   getAdminAllSongs,
 } from "../controllers/song.controller";
-import { uploadMusicSchema, updateMusicSchema } from "../zod/song.validator";
 import { validateBody } from "../middleware/zod.middleware";
 import { paginationSchema } from "../zod/pagenation.validator";
 import z from "zod";

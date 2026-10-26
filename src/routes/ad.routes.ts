@@ -1,11 +1,7 @@
 import express from "express";
 import { validateBody } from "../middleware/zod.middleware";
-import { authenticate, authenticateAdmin } from "../middleware/auth.middleware";
+import { authenticateAdmin } from "../middleware/auth.middleware";
 import z from "zod";
-import {
-  getFavoriteArtists,
-  setfavorite,
-} from "../controllers/singer.controller";
 import {
   addAlbumsToAd,
   createAd,
@@ -15,7 +11,7 @@ import {
   removeAlbumsFromAd,
   updateAd,
 } from "../controllers/ad.controller";
-import { getAdsForAdmin, deleteAd } from "../controllers/ad.controller";
+import { getAdsForAdmin } from "../controllers/ad.controller";
 
 const router = express.Router();
 

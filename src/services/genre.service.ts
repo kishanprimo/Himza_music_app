@@ -13,14 +13,6 @@ const {
 } = db;
 import { IGenre } from "../types";
 
-interface PaginatedGenresResult {
-  data: IGenre[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
 async function getAllGenres(
   page: number = 1,
   pageSize: number = 10,
@@ -91,14 +83,6 @@ async function removeGenre(genreId: number): Promise<number> {
   } catch (err) {
     throw err;
   }
-}
-
-interface PaginatedSongsResult {
-  data: IGenre[]; // or ISong[] if you're using a different interface
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
 }
 
 async function getSongsByGenre(

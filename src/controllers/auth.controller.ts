@@ -53,16 +53,15 @@ async function register(req: Request, res: Response) {
       let user = await user_service.getUser({
         mobile_number: req.body.mobile_number,
       });
-      let otpSent;
       if (req.body.country_code == "+91") {
-        otpSent = await sendMesg91TP(
+        await sendMesg91TP(
           req.body.country_code,
           req.body.mobile_number,
           otp
         );
       } else {
         logger.info("Sending OTP via Twilio");
-        otpSent = await sendTwilioOTP(
+        await sendTwilioOTP(
           req.body.country_code,
           req.body.mobile_number,
           otp

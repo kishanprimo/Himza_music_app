@@ -53,7 +53,6 @@ import {
   getArtist,
 } from "../controllers/artist.auth.controller";
 import { updateUserSchema } from "../zod/user.validator";
-import { SigninSchema } from "../zod/auth.validator";
 import {
   CreateGenreSchema,
   updateGenreSchema,
@@ -101,11 +100,10 @@ import {
   getUserSubscriptions,
   updatePlan,
 } from "../controllers/subscription.controller";
-import { paginationSchema } from "../zod/pagenation.validator";
 import { getAdsForAdmin, deleteAd } from "../controllers/ad.controller";
 import { createPodcast, getAllPodcast, editPodcast, getPodcastById, deletePodcast } from "../controllers/podcast.controller";
 import { addEpisode, getEpisodeList, editEpisode, deleteEpisode } from "../controllers/episode.controller"
-import { addEpisodeSchema, deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
+import { deleteEpisodeSchema, editPodcastSchema } from "../zod/podcast.validator";
 import { broadcastMessage, getbroadcastMessage } from "../controllers/Pushnotification.controller";
 import { broadcastMessageSchema, getBroadcastMessageSchema } from "../zod/broadcast.validator";
 

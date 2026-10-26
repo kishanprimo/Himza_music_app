@@ -131,7 +131,6 @@ async function createPlaylist(req: Request, res: Response) {
 // Add songs to album =====================================================
 async function addSongsToAlbum(req: Request, res: Response) {
   try {
-    let user = req.user;
     let album;
     album = await album_service.getAlbum(
       { album_id: req.body.album_id },
@@ -535,68 +534,6 @@ export async function getPlaylistSearchHistory(
 }
 
 // update album ====================================================
-async function updateAlbumold(req: Request, res: Response) {
-  try {
-    let album = await album_service.getAlbum({ album_id: req.body.album_id });
-    if (!album)
-      return response_service.badRequestResponse(
-        res,
-        "You are not the owner of this album."
-      );
-    if (album.is_private && req.user.user_id)
-      return response_service.badRequestResponse(res, "");
-    const files = req.files as
-      | { [fieldname: string]: Express.Multer.File[] }
-      | undefined;
-    let del_album;
-    if (files?.["album_thumbnail"]) del_album = album.thumbnail;
-
-    const album_data = {
-      ...req.body,
-      thumbnail: files?.["album_thumbnail"]?.[0].path,
-    };
-    album = await album_service.updateAlbum(album_data, {
-      album_id: req.body.album_id,
-    });
-
-    if (!album)
-      return response_service.badRequestResponse(
-        res,
-        "Failed to update album."
-      );
-    album = await album_service.getAlbum({ album_id: req.body.album_id }, [
-      {
-        model: AlbumSong,
-        as: "songs",
-        include: [
-          {
-            model: song,
-            as: "song",
-          },
-        ],
-      },
-      {
-        model: Genre,
-        as: "albumGenre",
-      },
-    ]);
-    if (del_album) {
-      const del_album_path = del_album.replace(config.clientUrl, "");
-      if (fs.existsSync(del_album_path)) {
-        fs.unlinkSync(del_album_path);
-      }
-    }
-    return response_service.successResponse(
-      res,
-      "Album updated successfully.",
-      album
-    );
-  } catch (err: any) {
-    logger.error("Error updating album:", err);
-    return response_service.internalServerErrorResponse(res, err.message);
-  }
-}
-
 async function updateAlbum(req: Request, res: Response) {
   try {
     const { album_id, song_id } = req.body;
@@ -788,7 +725,6 @@ async function getAlbum(req: Request, res: Response) {
 // get all albums ========================================
 async function getAllAlbums(req: Request, res: Response) {
   try {
-    const user = req.user;
     const albums = await album_service.getAllAlbums(
       req.body.page,
       req.body.limit,

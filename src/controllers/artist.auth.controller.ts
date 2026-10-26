@@ -2,7 +2,6 @@ import {
   user_service,
   response_service,
   dashboard_service,
-  genre_category_service,
   singer_service,
 } from "../services";
 import { Request, Response } from "express";
@@ -11,8 +10,7 @@ import { config } from "../config";
 import fs from "fs";
 import db from "../models";
 
-const { Genre, singerGenre, SubscribedUsers,
-  SunscriptionPlans } = db;
+const { Genre, singerGenre } = db;
 
 async function createArtist(req: Request, res: Response) {
   try {
@@ -29,20 +27,18 @@ async function createArtist(req: Request, res: Response) {
       ...artistPayload,
       is_singer: true,
     });
-    if (artistPayload.genre_ids.length > 0) {
-      artistPayload.genre_ids.forEach(async (genre_id: string) => {
-        await singer_service.addGenreToArtist(
-          parseInt(genre_id),
-          artist.user_id
-        );
-      });
-    }
-
     if (!artist)
       return response_service.badRequestResponse(
         res,
         "Failed to create artist."
       );
+    if (artistPayload.genre_ids?.length > 0) {
+      await Promise.all(
+        artistPayload.genre_ids.map((genre_id: string) =>
+          singer_service.addGenreToArtist(parseInt(genre_id), artist.user_id)
+        )
+      );
+    }
     artist = await user_service.getUser({ user_id: artist.user_id }, [
       {
         model: singerGenre,

@@ -1,7 +1,6 @@
 import { IPodcast } from "../types";
 import db from "../models";
 import { Op, Sequelize } from "sequelize";
-import { response_service } from ".";
 const { Podcast, Episode } = db;
 
 // to create podcast =============================================================

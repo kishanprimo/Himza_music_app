@@ -12,15 +12,48 @@ const {
   searchPlaylistHistory,
   favorites,
   Downloads,
-  History,
   Playlist,
   PlaylistSong,
 } = db;
 import { IAlbum, ISong, IPlaylist } from "../types";
 import { Sequelize, Order } from "sequelize";
-import { song_service } from ".";
 import { Op } from "sequelize";
 
+
+// Song ids from the list that exist, in the same order (one query).
+async function existingSongIds(songIds: string[]): Promise<string[]> {
+  if (!songIds?.length) return [];
+  const found = await song.findAll({
+    where: { song_id: { [Op.in]: songIds } },
+    attributes: ["song_id"],
+    raw: true,
+  });
+  const foundSet = new Set(found.map((row: any) => String(row.song_id)));
+  return songIds.filter((id) => foundSet.has(String(id)));
+}
+
+// Removes song links and returns, per requested song, how many links were
+// removed (callers check the first entry), with two queries in total.
+async function destroyLinks(
+  model: any,
+  where: Record<string, any>,
+  songIds: string[],
+): Promise<number[]> {
+  if (!songIds?.length) return [];
+  const existing = await model.findAll({
+    where: { ...where, song_id: { [Op.in]: songIds } },
+    attributes: ["song_id"],
+    raw: true,
+  });
+  await model.destroy({ where: { ...where, song_id: { [Op.in]: songIds } } });
+
+  const removed = new Map<string, number>();
+  for (const row of existing) {
+    const key = String(row.song_id);
+    removed.set(key, (removed.get(key) ?? 0) + 1);
+  }
+  return songIds.map((id) => removed.get(String(id)) ?? 0);
+}
 
 // create album =================================================
 async function createAlbum(
@@ -40,22 +73,14 @@ async function addSongsToAlbum(
   albumId: string,
 ): Promise<ISong[] | null> {
   try {
-    const ids: string[] = (
-      await Promise.all(
-        songIds.map(async (song_id: string) => {
-          const data: any = await song.findOne({ where: { song_id: song_id } });
-          return data ? data.song_id : null;
-        }),
-      )
-    ).filter((id): id is string => id !== null);
+    const ids = await existingSongIds(songIds);
 
     if (ids.length <= 0) return null;
-    const albumSongs = await Promise.all(
-      ids.map((song_id: string) =>
-        AlbumSong.create({ album_id: albumId, song_id: song_id }),
-      ),
+    const albumSongs = await AlbumSong.bulkCreate(
+      ids.map((song_id) => ({ album_id: albumId, song_id })),
+      { returning: true },
     );
-    return albumSongs.map((s) => s.toJSON());
+    return albumSongs.map((s: any) => s.toJSON());
   } catch (err) {
     throw err;
   }
@@ -67,15 +92,7 @@ async function removeSongFromAlbum(
   albumId: string,
 ): Promise<number[] | null> {
   try {
-    const albumSongs = await Promise.all(
-      songIds.map(
-        async (song_id: string) =>
-          await AlbumSong.destroy({
-            where: { album_id: albumId, song_id: song_id },
-          }),
-      ),
-    );
-    return albumSongs;
+    return await destroyLinks(AlbumSong, { album_id: albumId }, songIds);
   } catch (err) {
     throw err;
   }
@@ -86,16 +103,7 @@ async function removeSongFromPlaylist(
   playlistId: string
 ): Promise<number[] | null> {
   try {
-    const playlistSongs = await Promise.all(
-      songIds.map(
-        async (song_id: string) =>
-          await PlaylistSong.destroy({
-            where: { playlist_id: playlistId, song_id: song_id },
-          })
-      )
-    );
-
-    return playlistSongs;
+    return await destroyLinks(PlaylistSong, { playlist_id: playlistId }, songIds);
   } catch (err) {
     throw err;
   }
@@ -249,25 +257,31 @@ async function getAlbumData(
     });
     if (!album || album.length === 0) return null;
 
-    const songs = await Promise.all(
-      album.map(async (entry: any) => {
-        const rawEntry = entry.get({ plain: true });
+    const entries = album.map((entry: any) => entry.get({ plain: true }));
+    const songIds = entries
+      .map((entry: any) => entry.song?.song_id)
+      .filter((id: any) => id != null);
+    const favoriteRows =
+      user_id && songIds.length
+        ? await favorites.findAll({
+          where: { user_id, song_id: { [Op.in]: songIds } },
+          attributes: ["song_id"],
+          raw: true,
+        })
+        : [];
+    const favoriteSet = new Set(favoriteRows.map((row: any) => Number(row.song_id)));
 
-        const song = rawEntry.song as ISong;
-        if (!song) return null;
+    const songs = entries.map((entry: any) => {
+      const song = entry.song as ISong;
+      if (!song) return null;
 
-        if (user_id) {
-          const is_favorite = await song_service.isfavorite(
-            user_id,
-            parseInt(song.song_id),
-          );
-          return { ...song, is_favorite };
-        }
-        return { ...song };
-      }),
-    );
+      if (user_id) {
+        return { ...song, is_favorite: favoriteSet.has(Number(song.song_id)) };
+      }
+      return { ...song };
+    });
 
-    return songs.filter((song) => song !== null);
+    return songs.filter((song: any) => song !== null);
   } catch (err) {
     throw err;
   }
@@ -924,24 +938,16 @@ async function addSongsToPlaylist(
 ): Promise<ISong[] | null> {
   try {
 
-    const ids: string[] = (
-      await Promise.all(
-        songIds.map(async (song_id: string) => {
-          const data: any = await song.findOne({ where: { song_id: song_id } });
-          return data ? data.song_id : null;
-        }),
-      )
-    ).filter((id): id is string => id !== null);
+    const ids = await existingSongIds(songIds);
 
     if (ids.length <= 0) return null;
 
-    const playlistSongs = await Promise.all(
-      ids.map((song_id: string) =>
-        PlaylistSong.create({ playlist_id: playlistId, song_id: song_id }),
-      ),
+    const playlistSongs = await PlaylistSong.bulkCreate(
+      ids.map((song_id) => ({ playlist_id: playlistId, song_id })),
+      { returning: true },
     );
 
-    return playlistSongs.map((s) => s.toJSON());
+    return playlistSongs.map((s: any) => s.toJSON());
 
   } catch (err) {
     throw err;

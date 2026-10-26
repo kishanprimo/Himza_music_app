@@ -4,7 +4,6 @@ import { initializeSocketIO } from "./socket";
 import { config } from "./config";
 import { initializeDatabase } from "./config/database";
 import removeExpieredSubscriptions from "./cron_jobs/RemoveExpieredSubscriptions";
-import seedAdmin from "./utils/seedAdmin";
 
 // Start the server
 const startServer = async (): Promise<void> => {
@@ -20,12 +19,6 @@ const startServer = async (): Promise<void> => {
 
     logger.info("Connected to PostgreSQL successfully");
 
-    // Start listening
-    // const server = app.listen(config.port, () => {
-    //   // eslint-disable-next-line no-console
-    //   console.log(`Server is running on port ${config.port}`);
-    //   logger.info(`Server is running on port ${config.port}`);
-    // });
 
     const server = app.listen(config.port, () => {
       logger.info(`Server running on port ${config.port}`);
