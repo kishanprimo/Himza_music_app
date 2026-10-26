@@ -10,7 +10,8 @@ const {
   MovieSongConnection,
   Movie,
   User,
-  AlbumSongs,
+  // The model is registered as "AlbumSong"; "AlbumSongs" was undefined.
+  AlbumSong: AlbumSongs,
   History,
 } = db;
 import { ISong } from "../types";

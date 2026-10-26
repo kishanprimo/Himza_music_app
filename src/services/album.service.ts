@@ -2,7 +2,6 @@ import db from "../models";
 
 const {
   Album,
-  AlbumSongs,
   AlbumSong,
   favoriteAlbums,
   Genre,
@@ -250,7 +249,7 @@ async function getAlbumData(
   include?: any,
 ): Promise<any[] | null> {
   try {
-    const album = await AlbumSongs.findAll({
+    const album = await AlbumSong.findAll({
       where,
       order: [["album_song_id", "DESC"]],
       include,
