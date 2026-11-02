@@ -3,7 +3,7 @@ name: Deploy to Production
 on:
   push:
     branches:
-      - main1331
+      - main
 
 jobs:
   deploy:
@@ -27,10 +27,11 @@ jobs:
         run: npm run build
 
       # No --delete: files that only exist on the server (.env, uploads, logs) are never removed.
+      # Leading "/" anchors each exclude to the project root so only /uploads is skipped, not any nested folder with that name.
       - name: Deploy to server via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -avzr --exclude='.git' --exclude='.github' --exclude='.env' --exclude='node_modules' --exclude='uploads' --exclude='logs'
+          switches: -avzr --exclude='/.git' --exclude='/.github' --exclude='/.env' --exclude='/node_modules' --exclude='/uploads' --exclude='/logs'
           path: ./
           remote_path: /var/www/api-musicapp/
           remote_host: ${{ secrets.SERVER_HOST }}
@@ -50,6 +51,9 @@ jobs:
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             cd /var/www/api-musicapp
+
+            # Persistent data dirs live only on the server; make sure they exist (never deleted).
+            mkdir -p uploads logs
 
             echo "=== Installing production dependencies ==="
             npm ci --omit=dev
