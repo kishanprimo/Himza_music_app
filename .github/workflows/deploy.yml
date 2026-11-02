@@ -26,12 +26,12 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # No --delete: files that only exist on the server (.env, uploads, logs) are never removed.
+      # No --delete: files that only exist on the server (.env, uploads, admin, logs) are never removed.
       # Leading "/" anchors each exclude to the project root so only /uploads is skipped, not any nested folder with that name.
       - name: Deploy to server via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -avzr --exclude='/.git' --exclude='/.github' --exclude='/.env' --exclude='/node_modules' --exclude='/uploads' --exclude='/logs'
+          switches: -avzr --exclude='/.git' --exclude='/.github' --exclude='/.env' --exclude='/node_modules' --exclude='/uploads' --exclude='/admin' --exclude='/logs'
           path: ./
           remote_path: /var/www/api-musicapp/
           remote_host: ${{ secrets.SERVER_HOST }}
