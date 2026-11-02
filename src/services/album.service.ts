@@ -884,6 +884,19 @@ async function getAlbumSongs(
         attributes: ["song_id", "title", "thumbnail", "audio"],
         include: [
           {
+            model: MusicSinger,
+            as: "artists",
+            attributes: ["music_singer_id"],
+            required: false,
+            include: [
+              {
+                model: User,
+                as: "singer",
+                attributes: ["full_name"],
+              },
+            ],
+          },
+          {
             model: favorites,
             as: "downloadedBy",
             attributes: ["favorite_id"],
@@ -912,6 +925,10 @@ async function getAlbumSongs(
       return {
         song_id: s.song_id,
         title: s.title,
+        artist_name: (s.artists || [])
+          .map((a: any) => a.singer?.full_name)
+          .filter(Boolean)
+          .join(", "),
         thumbnail: s.thumbnail,
         audio: s.audio,
         is_favorite: s.downloadedBy?.length > 0,
