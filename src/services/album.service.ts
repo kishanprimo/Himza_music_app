@@ -855,6 +855,8 @@ async function getAlbumSongs(
   limit: number = 10,
   user_id?: number
 ) {
+  page = Math.max(1, Math.floor(Number(page)) || 1);
+  limit = Math.min(100, Math.max(1, Math.floor(Number(limit)) || 10));
   const offset = (page - 1) * limit;
 
   let album_favorite = false;
@@ -871,6 +873,9 @@ async function getAlbumSongs(
     where: { album_id: albumId },
     limit,
     offset,
+    // Nested hasMany joins multiply rows; count each album song once.
+    distinct: true,
+    col: "album_song_id",
     order: [["album_song_id", "DESC"]],
     include: [
       {
@@ -881,14 +886,14 @@ async function getAlbumSongs(
           {
             model: favorites,
             as: "downloadedBy",
-            attributes: [],
+            attributes: ["favorite_id"],
             required: false,
             where: user_id ? { user_id } : undefined,
           },
           {
             model: Downloads,
             as: "favoriteBy",
-            attributes: [],
+            attributes: ["download_id"],
             required: false,
             where: user_id ? { user_id } : undefined,
           },
@@ -897,18 +902,22 @@ async function getAlbumSongs(
     ],
   });
 
-  const songs = rows.map((item: any) => {
-    const s = item.song;
+  // Song model aliases are swapped: `downloadedBy` is the favorites table and
+  // `favoriteBy` is the Downloads table.
+  const songs = rows
+    .filter((item: any) => item.song)
+    .map((item: any) => {
+      const s = item.song;
 
-    return {
-      song_id: s.song_id,
-      title: s.title,
-      thumbnail: s.thumbnail,
-      audio: s.audio,
-      is_favorite: s.favoriteBy?.length > 0,
-      is_downloaded: s.downloadedBy?.length > 0,
-    };
-  });
+      return {
+        song_id: s.song_id,
+        title: s.title,
+        thumbnail: s.thumbnail,
+        audio: s.audio,
+        is_favorite: s.downloadedBy?.length > 0,
+        is_downloaded: s.favoriteBy?.length > 0,
+      };
+    });
 
   return {
     album_favorite,
