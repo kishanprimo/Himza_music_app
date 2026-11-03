@@ -110,7 +110,16 @@ async function getSearchHistory(
 
     // If no search history found, return default structure
     if (!searchHistorys || searchHistorys.count === 0) {
-      return { count: 0, rows: [] };
+      return {
+        count: 0,
+        rows: [],
+        pagination: {
+          current_page: page,
+          records_per_page: limit,
+          total_records: 0,
+          total_pages: 0,
+        },
+      };
     }
 
     // Convert to JSON
@@ -228,17 +237,17 @@ async function getSearchHistory(
     // Remove unavailable records
     rows = rows.filter(Boolean);
 
-    // Correct count
-    const validCount = rows.length;
+    // Total comes from the DB, not from the (filtered) current page.
+    const totalCount = searchHistorys.count;
 
     return {
-      count: validCount,
+      count: totalCount,
       rows,
       pagination: {
         current_page: page,
         records_per_page: limit,
-        total_records: validCount,
-        total_pages: Math.ceil(validCount / limit),
+        total_records: totalCount,
+        total_pages: Math.ceil(totalCount / limit),
       },
     };
   } catch (err) {
