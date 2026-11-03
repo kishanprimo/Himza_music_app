@@ -991,6 +991,9 @@ async function getPlaylistSongs(
     where: { playlist_id: playlistId },
     limit,
     offset,
+    // Nested hasMany joins multiply rows; count each playlist song once.
+    distinct: true,
+    col: "playlist_song_id",
     order: [["playlist_song_id", "DESC"]],
     include: [
       {
@@ -998,6 +1001,19 @@ async function getPlaylistSongs(
         as: "song",
         attributes: ["song_id", "title", "thumbnail", "audio"],
         include: [
+          {
+            model: MusicSinger,
+            as: "artists",
+            attributes: ["music_singer_id"],
+            required: false,
+            include: [
+              {
+                model: User,
+                as: "singer",
+                attributes: ["full_name"],
+              },
+            ],
+          },
           {
             model: favorites,
             as: "downloadedBy",
@@ -1023,6 +1039,10 @@ async function getPlaylistSongs(
     return {
       song_id: s.song_id,
       title: s.title,
+      artist_name: (s.artists || [])
+        .map((a: any) => a.singer?.full_name)
+        .filter(Boolean)
+        .join(", "),
       thumbnail: s.thumbnail,
       audio: s.audio,
       is_favorite: s.favoriteBy?.length > 0,
