@@ -61,8 +61,9 @@ async function addToSearchHistory(
     });
 
     if (searchHistorys) {
-      // Optional: update timestamp if you want
-      await searchHistorys.update({});
+      // update({}) is a no-op in Sequelize, so bump updatedAt explicitly to
+      // move the entry to the top of the history.
+      await searchHistorys.update({ updatedAt: new Date() });
       return searchHistorys.toJSON();
     }
 
